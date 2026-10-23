@@ -17,7 +17,8 @@ const DEFAULTS = {
   chat: true,
   videoControls: true,
   beerTheme: true,
-  tableTitle: "vNBT Poker Challenge"
+  tableTitle: "vNBT Poker Challenge",
+  stackChart: true
 };
 
 const style = document.createElement("style");
@@ -50,8 +51,13 @@ function beerCss(title) {
 }`;
 }
 
+// The stack chart (chart.js) takes the bottom-left corner and has its own
+// Log/Ledger button, so Poker Now's is hidden while the chart is on.
+const LOG_BUTTON = ".aux-chat-bottom-buttons-ctn";
+
 function apply(settings) {
   const selectors = Object.keys(RULES).filter((k) => settings[k]).map((k) => RULES[k]);
+  if (settings.stackChart) selectors.push(LOG_BUTTON);
   const css = [];
   if (selectors.length) css.push(`${selectors.join(",\n")} { display: none !important; }`);
   if (settings.beerTheme) css.push(beerCss(settings.tableTitle));

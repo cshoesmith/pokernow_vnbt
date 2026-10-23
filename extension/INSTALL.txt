@@ -1,0 +1,28 @@
+vNBT Poker - Chrome extension for Poker Now
+===========================================
+
+What it does (on pokernow.com game pages):
+  - Beer-themed table with a title (default "vNBT Poker Challenge")
+  - Chip stack chart for every player, in the bottom-left corner
+  - Live "win chance" badge next to your seat during a hand
+  - Hides the promo link, chat and video buttons (each can be turned back on)
+
+Install (about 1 minute):
+  1. Unzip this file somewhere you'll keep it (e.g. Documents\vNBT Poker).
+     Don't delete the folder afterwards - Chrome runs the extension from it.
+  2. In Chrome, go to:  chrome://extensions
+  3. Turn on "Developer mode" (switch in the top-right corner).
+  4. Click "Load unpacked" and choose the unzipped folder
+     (the one that contains manifest.json).
+  5. Reload your Poker Now tab.
+
+Settings:
+  Click the puzzle-piece icon in Chrome's toolbar, pin "vNBT Poker",
+  then click its icon to turn features on or off and change the table title.
+
+Updating to a new version:
+  Replace the folder's contents with the new files, then click the
+  reload arrow on vNBT Poker in chrome://extensions.
+
+Note: Chrome may show a "Disable developer mode extensions" message when it
+starts. That's normal for extensions installed this way - click the X to keep it.

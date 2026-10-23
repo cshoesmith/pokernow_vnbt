@@ -3,7 +3,9 @@ const DEFAULTS = {
   chat: true,
   videoControls: true,
   beerTheme: true,
-  tableTitle: "vNBT Poker Challenge"
+  tableTitle: "vNBT Poker Challenge",
+  stackChart: true,
+  winOdds: true
 };
 
 chrome.storage.sync.get(DEFAULTS, (settings) => {

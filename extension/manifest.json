@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Clean Poker",
-  "version": "1.0.0",
-  "description": "Hides clutter in the bottom-left corner of Poker Now tables.",
+  "name": "vNBT Poker",
+  "version": "1.1.0",
+  "description": "Poker Now add-ons: beer-themed table with your own title, chip stack chart, live win chance for your hand, and less clutter.",
   "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["https://www.pokernow.com/*", "https://pokernow.com/*"],
-      "js": ["content.js"],
+      "js": ["content.js", "chart.js", "winodds.js"],
       "run_at": "document_start"
     }
   ],
@@ -18,7 +18,7 @@
     }
   ],
   "action": {
-    "default_title": "Clean Poker",
+    "default_title": "vNBT Poker",
     "default_popup": "popup.html"
   }
 }
