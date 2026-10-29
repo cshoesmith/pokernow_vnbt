@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "vNBT Poker",
-  "version": "1.1.0",
-  "description": "Poker Now add-ons: beer-themed table with your own title, chip stack chart, live win chance for your hand, and less clutter.",
+  "version": "1.2.0",
+  "description": "Poker Now add-ons: beer-themed table with your own title, chip stack chart, live win chance for your hand, Untappd check-ins on seats, and less clutter.",
   "permissions": ["storage"],
+  "host_permissions": ["https://untappd.com/*"],
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": ["https://www.pokernow.com/*", "https://pokernow.com/*"],
-      "js": ["content.js", "chart.js", "winodds.js"],
+      "js": ["content.js", "chart.js", "winodds.js", "untappd.js"],
       "run_at": "document_start"
     }
   ],

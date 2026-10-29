@@ -5,6 +5,8 @@ What it does (on pokernow.com game pages):
   - Beer-themed table with a title (default "vNBT Poker Challenge")
   - Chip stack chart for every player, in the bottom-left corner
   - Live "win chance" badge next to your seat during a hand
+  - Untappd: if your Poker Now name is your Untappd username, your seat
+    shows your latest check-in (beer, brewery, rating and photo)
   - Hides the promo link, chat and video buttons (each can be turned back on)
 
 Install (about 1 minute):

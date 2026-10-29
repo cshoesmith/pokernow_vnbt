@@ -5,7 +5,8 @@ const DEFAULTS = {
   beerTheme: true,
   tableTitle: "vNBT Poker Challenge",
   stackChart: true,
-  winOdds: true
+  winOdds: true,
+  untappd: true
 };
 
 chrome.storage.sync.get(DEFAULTS, (settings) => {
