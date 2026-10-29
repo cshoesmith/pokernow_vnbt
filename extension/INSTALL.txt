@@ -30,3 +30,5 @@ Updating to a new version:
 
 Note: Chrome may show a "Disable developer mode extensions" message when it
 starts. That's normal for extensions installed this way - click the X to keep it.
+
+License: MIT - free to use, copy, modify and share. See the LICENSE file.
