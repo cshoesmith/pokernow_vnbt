@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "vNBT Poker",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Poker Now add-ons: beer-themed table with your own title, chip stack chart, live win chance for your hand, Untappd check-ins on seats, and less clutter.",
   "permissions": ["storage"],
   "host_permissions": ["https://untappd.com/*"],
