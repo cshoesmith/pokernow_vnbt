@@ -184,17 +184,51 @@
   // Fill the bottom-left corner (Poker Now's Log/Ledger button is hidden; ours is in
   // the header) with the largest box that stays clear of the seat boxes: try a top edge just
   // below each seat, stretch right until a seat is in the way, keep the biggest.
-  const MAX_WIDTH = 520, MIN_HEIGHT = 150, MARGIN = 12, GAP = 10;
+  const MAX_WIDTH = 520, MAX_HEIGHT = 360, MIN_HEIGHT = 150, MARGIN = 12, GAP = 10;
+
+  // A seat's full footprint: its box plus anything drawn outside it (cards, chips, emoji).
+  function seatRect(seat) {
+    const r = seat.getBoundingClientRect();
+    if (!r.width) return null;
+    let { left, top, right, bottom } = r;
+    for (const el of seat.querySelectorAll("*")) {
+      const c = el.getBoundingClientRect();
+      if (!c.width || !c.height) continue;
+      left = Math.min(left, c.left); top = Math.min(top, c.top);
+      right = Math.max(right, c.right); bottom = Math.max(bottom, c.bottom);
+    }
+    return { left, top, right, bottom };
+  }
+
+  // The table oval on screen. The table image (1889x892, background-size: cover,
+  // centred) has its rail at (947, 455) with radii 619 x 333, 3D edge included.
+  function tableOval() {
+    const t = document.querySelector(".table")?.getBoundingClientRect();
+    if (!t?.width) return null;
+    const s = Math.max(t.width / 1889, t.height / 892);
+    const ox = t.left + (t.width - 1889 * s) / 2, oy = t.top + (t.height - 892 * s) / 2;
+    return { cx: ox + 947 * s, cy: oy + 455 * s, rx: 619 * s + GAP, ry: 333 * s + GAP };
+  }
+
+  // Rightmost x a box spanning rows top..bottom can reach without touching the oval.
+  function ovalLimit(o, top, bottom) {
+    if (!o) return Infinity;
+    const yc = Math.min(Math.max(o.cy, top), bottom);   // the row where the oval reaches furthest left
+    const dy = (yc - o.cy) / o.ry;
+    return Math.abs(dy) >= 1 ? Infinity : o.cx - o.rx * Math.sqrt(1 - dy * dy);
+  }
 
   function cornerRect(h) {
-    const seats = [...document.querySelectorAll(".table-player")].map((s) => s.getBoundingClientRect()).filter((r) => r.width);
+    const seats = [...document.querySelectorAll(".table-player")].map(seatRect).filter(Boolean);
+    const oval = tableOval();
     const left = h.left + MARGIN, bottom = h.bottom - MARGIN;
     const maxRight = left + Math.min(MAX_WIDTH, h.width * 0.32);
-    const tops = [h.top + h.height / 2, ...seats.map((r) => r.bottom + GAP)]
-      .filter((t) => t >= h.top + h.height / 2 && bottom - t >= MIN_HEIGHT);
+    const highest = Math.max(h.top + h.height / 2, bottom - MAX_HEIGHT);
+    const tops = [highest, ...seats.map((r) => r.bottom + GAP)]
+      .filter((t) => t >= highest && bottom - t >= MIN_HEIGHT);
     let best = null;
     for (const top of tops) {
-      let right = maxRight;
+      let right = Math.min(maxRight, ovalLimit(oval, top, bottom));
       for (const r of seats) if (r.top < bottom && r.bottom > top && r.right > left) right = Math.min(right, r.left - GAP);
       const area = (right - left) * (bottom - top);
       if (right > left && (!best || area > best.area)) best = { area, left, top, width: right - left, height: bottom - top };
@@ -449,7 +483,7 @@
   }
 
   window.addEventListener("resize", place);
-  setInterval(place, 2000);   // the app re-renders its layout; keep our panel aligned
+  setInterval(place, 1000);   // players sit down and the app re-renders its layout; keep clear of them
 
   chrome.storage.sync.get({ stackChart: true }, (s) => setEnabled(s.stackChart));
   chrome.storage.onChanged.addListener((changes, area) => {
