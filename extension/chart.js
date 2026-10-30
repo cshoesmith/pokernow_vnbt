@@ -644,7 +644,11 @@
     setExpanded(false);   // sets the button's icon and places the panel
     if (loaded) render(); else setStatus("Loading hand history…");
     await sync();
-    pollTimer = setInterval(() => { if (!document.hidden) sync(); }, POLL_MS);
+    pollTimer = setInterval(() => {
+      // Extension reloaded: this copy can't save any more; the refreshed tab's copy takes over.
+      if (!chrome.runtime?.id) clearInterval(pollTimer);
+      else if (!document.hidden) sync();
+    }, POLL_MS);
   }
 
   function setEnabled(on) {

@@ -10,7 +10,7 @@
   const TICK_MS = 1000;
   const FRESH_MS = 5 * 60000;     // re-read a profile this often
   const MISSING_MS = 60 * 60000;  // no such Untappd user: try again much later
-  const CACHE_KEY = "untappd";
+  const CACHE_KEY = "untappd2";   // v2 check-ins carry beerPath, for the ABV; v1 entries are re-read
   const ABV_KEY = "untappdAbv";
   const USERNAME_RE = /^[\w.-]{2,40}$/;
   // Images go into a CSS url(), so only plain Untappd image links are allowed.
@@ -76,7 +76,7 @@
     } finally {
       busy = false;
     }
-    chrome.storage.local.set({ [CACHE_KEY]: cache });
+    if (chrome.runtime?.id) chrome.storage.local.set({ [CACHE_KEY]: cache });
   }
 
   // ---------- Seat signs ----------
@@ -145,6 +145,9 @@
   }
 
   function tick() {
+    // The extension was reloaded or updated: this copy can't reach Chrome any more.
+    // The new copy takes over once the tab is refreshed.
+    if (!chrome.runtime?.id) { clearInterval(timer); return; }
     if (!style.isConnected) document.head.appendChild(style);
     let due = null;
     for (const seat of document.querySelectorAll(".table-player:not(.table-player-seat)")) {
@@ -166,6 +169,7 @@
       const stored = await chrome.storage.local.get([CACHE_KEY, ABV_KEY]);
       cache = stored[CACHE_KEY] || {};
       abvs = stored[ABV_KEY] || {};
+      chrome.storage.local.remove("untappd");   // v1 cache
       if (enabled) timer = setInterval(tick, TICK_MS);   // unless switched off meanwhile
     } else {
       style.remove();
