@@ -1,7 +1,8 @@
 // Untappd: a player whose Poker Now name is also their Untappd username gets
-// their latest check-in on their seat sign - beer, brewery and rating over the
-// check-in photo (or the beer label if there's no photo). background.js fetches
-// the profile pages; results are cached so each is re-read every few minutes.
+// their latest check-in on their seat sign - beer, brewery, rating and ABV over
+// the check-in photo (or the beer label if there's no photo). background.js
+// fetches the profile pages; results are cached so each is re-read every few
+// minutes. The profile doesn't show ABV, so each new beer's page is read once.
 
 (() => {
   if (!/^\/games\//.test(location.pathname)) return;
@@ -10,12 +11,15 @@
   const FRESH_MS = 5 * 60000;     // re-read a profile this often
   const MISSING_MS = 60 * 60000;  // no such Untappd user: try again much later
   const CACHE_KEY = "untappd";
+  const ABV_KEY = "untappdAbv";
   const USERNAME_RE = /^[\w.-]{2,40}$/;
   // Images go into a CSS url(), so only plain Untappd image links are allowed.
   const IMAGE_RE = /^https:\/\/([\w-]+\.)*(untappd\.com|untp\.beer)\/[^"'\\\s()]*$/;
 
   // lowercased name -> { next: ms to re-read at, checkin: {...} | null }
   let cache = {};
+  // beer page path -> "5%" ("" if the page has none); ABV doesn't change, so kept for good
+  let abvs = {};
   let enabled = false, timer = null, busy = false;
 
   // ---------- Reading a profile ----------
@@ -35,6 +39,7 @@
     return {
       id: item.dataset.checkinId,
       beer: beer.textContent.trim(),
+      beerPath: beer.getAttribute("href"),
       brewery: item.querySelector('.checkin .text a[href^="/w/"]')?.textContent.trim() || "",
       rating: Number(item.querySelector(".caps[data-rating]")?.dataset.rating) || 0,
       image: image(".photo img") || image("a.label img"),
@@ -42,12 +47,27 @@
     };
   }
 
+  // A beer page has <div class="details"><p class="abv">5% ABV</p>...
+  async function fetchAbv(path) {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "untappd", beer: path });
+      if (res?.status !== 200) return;   // try again on the next profile read
+      const doc = new DOMParser().parseFromString(res.html, "text/html");
+      abvs[path] = doc.querySelector(".details .abv")?.textContent.match(/\d+(\.\d+)?%/)?.[0] || "";
+      chrome.storage.local.set({ [ABV_KEY]: abvs });
+    } catch { /* offline: same */ }
+  }
+
   async function refresh(name) {
     const key = name.toLowerCase();
     busy = true;
     try {
       const res = await chrome.runtime.sendMessage({ type: "untappd", user: name });
-      if (res?.status === 200) cache[key] = { next: Date.now() + FRESH_MS, checkin: parseCheckin(res.html) };
+      if (res?.status === 200) {
+        const checkin = parseCheckin(res.html);
+        if (checkin?.beerPath && !(checkin.beerPath in abvs)) await fetchAbv(checkin.beerPath);
+        cache[key] = { next: Date.now() + FRESH_MS, checkin };
+      }
       else if (res?.status === 404) cache[key] = { next: Date.now() + MISSING_MS, checkin: null };
       else throw new Error(`status ${res?.status}`);
     } catch {
@@ -62,7 +82,8 @@
   // ---------- Seat signs ----------
   // The sign (.table-player-infos-ctn) is a positioned box with its own stacking
   // context; the name and stack sit in its right half and the avatar/status in
-  // its left, leaving a band along the top and the corner under the stack free.
+  // its left, leaving a band along the top, the corner under the stack and the
+  // far bottom-left corner free. Poker Now's badges cover the top band's right end.
   // Our layer sits at z-index -1: over the sign's own background, under its contents.
 
   const style = document.createElement("style");
@@ -76,7 +97,10 @@
     .cp-beer-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
       color: inherit !important; text-decoration: none; pointer-events: auto; }
     .cp-beer-name:hover { text-decoration: underline; }
+    .cp-beer-stats { left: 3cqw; bottom: 3cqh; flex-direction: column; align-items: flex-start; gap: 0;
+      font-size: 12cqh; }
     .cp-beer-rating { color: #f5b82e; }
+    .cp-beer-abv { color: #c3c2b7; font-weight: 400; }
     .cp-beer-brewery { left: 52cqw; right: 4cqw; bottom: 3cqh; height: 20cqh; overflow: hidden;
       text-overflow: ellipsis; display: block; line-height: 20cqh; color: #c3c2b7; font-weight: 400; }`;
 
@@ -93,13 +117,15 @@
     const box = seat.querySelector(".table-player-infos-ctn");
     let sign = box?.querySelector(":scope > .cp-beer");
     if (!checkin) { sign?.remove(); return; }
-    if (!box || sign?.dataset.id === checkin.id) return;
+    const abv = abvs[checkin.beerPath] || "";
+    const id = `${checkin.id} ${abv}`;
+    if (!box || sign?.dataset.id === id) return;
     if (!sign) {
       sign = document.createElement("div");
       sign.className = "cp-beer";
       box.appendChild(sign);
     }
-    sign.dataset.id = checkin.id;
+    sign.dataset.id = id;
     sign.style.backgroundImage = checkin.image
       ? `linear-gradient(rgba(20,20,20,0.55), rgba(20,20,20,0.82)), url("${checkin.image}")` : "";
 
@@ -111,8 +137,11 @@
     const top = document.createElement("div");
     top.className = "cp-beer-top";
     top.append(name);
-    if (checkin.rating) top.append(span("cp-beer-rating", `★ ${checkin.rating}`));
-    sign.replaceChildren(top, span("cp-beer-brewery", checkin.brewery));
+    const stats = document.createElement("div");
+    stats.className = "cp-beer-stats";
+    if (checkin.rating) stats.append(span("cp-beer-rating", `★ ${checkin.rating}`));
+    if (abv) stats.append(span("cp-beer-abv", abv));
+    sign.replaceChildren(top, stats, span("cp-beer-brewery", checkin.brewery));
   }
 
   function tick() {
@@ -134,7 +163,9 @@
     enabled = on;
     clearInterval(timer);
     if (on) {
-      cache = (await chrome.storage.local.get(CACHE_KEY))[CACHE_KEY] || {};
+      const stored = await chrome.storage.local.get([CACHE_KEY, ABV_KEY]);
+      cache = stored[CACHE_KEY] || {};
+      abvs = stored[ABV_KEY] || {};
       if (enabled) timer = setInterval(tick, TICK_MS);   // unless switched off meanwhile
     } else {
       style.remove();
