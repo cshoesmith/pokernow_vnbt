@@ -34,7 +34,7 @@ function escapeXml(s) {
 // exactly like the table under background-size: cover.
 function titleLayer(text) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1889" height="892" viewBox="0 0 1889 892">` +
-    `<text x="947" y="640" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" ` +
+    `<text x="947" y="619" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" ` +
     `font-size="48" font-weight="600" letter-spacing="4" fill="#fff" fill-opacity="0.75">` +
     `${escapeXml(text)}</text></svg>`;
   return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;

@@ -12,6 +12,7 @@
   const PAGE_DELAY_MS = 1200;   // the log endpoint rate-limits quick paging
   const RETRY_MS = 10000;
   const POLL_MS = 20000;
+  const FETCH_MS = 30000;       // a request that never answers mustn't block every later sync
 
   // Validated dark categorical palette (fixed order; assigned by first appearance).
   const SERIES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
@@ -43,11 +44,15 @@
 
   const STACK_RE = /#\d+ "(.+?) @ ([\w-]+)" \((\d+(?:\.\d+)?)\)/g;
 
+  // A player keeps their id when they rejoin under a new name. The log is read newest
+  // first, so the first name seen for an id in a sync is their current one.
+  let syncNames = {};
+
   function parseStacks(log) {
     const s = {};
     for (const m of log.msg.matchAll(STACK_RE)) {
       s[m[2]] = Number(m[3]);
-      if (!(m[2] in data.names)) data.names[m[2]] = m[1];
+      syncNames[m[2]] ??= m[1];
     }
     return { c: Number(log.created_at), t: Date.parse(log.at), s };
   }
@@ -66,7 +71,7 @@
     for (const [re, read] of EVENTS) {
       const m = log.msg.match(re);
       if (!m) continue;
-      if (!(m[2] in data.names)) data.names[m[2]] = m[1];
+      syncNames[m[2]] ??= m[1];
       const [kind, amount] = read(m);
       return { c: Number(log.created_at), id: m[2], kind, amount };
     }
@@ -88,7 +93,7 @@
 
   async function fetchPage(before) {
     for (;;) {
-      const res = await fetch(`/games/${GAME_ID}/log?before_at=${before ?? ""}&after_at=&mm=false&v=2`);
+      const res = await fetch(`/games/${GAME_ID}/log?before_at=${before ?? ""}&after_at=&mm=false&v=2`, { signal: AbortSignal.timeout(FETCH_MS) });
       const text = await res.text();
       if (text.startsWith("{")) return JSON.parse(text).logs || [];
       await sleep(RETRY_MS);   // "Too many requests" - back off and retry
@@ -99,6 +104,7 @@
   async function sync() {
     if (syncing) return;
     syncing = true;
+    syncNames = {};
     try {
       const fresh = [], freshEvents = [];
       let before = null;
@@ -127,11 +133,14 @@
       if (sawNew) {
         data.points = data.points.concat(fresh.reverse());
         data.events = data.events.concat(freshEvents.reverse());
+        Object.assign(data.names, syncNames);
         chrome.storage.local.set({ [CACHE_KEY]: data });
       }
       if (sawNew || !ledger) await fetchLedger();
       loaded = true;
       render();
+    } catch (err) {
+      console.warn("vNBT Poker: chart update failed, trying again at the next poll", err);   // offline, say
     } finally {
       syncing = false;
     }
@@ -294,8 +303,11 @@
   document.addEventListener("keydown", (ev) => { if (expanded && ev.key === "Escape") setExpanded(false); });
 
   // Scroll the plot with the mouse wheel; redraw so the y-axis fits the hands in view.
-  let drawQueued = false;
+  // New hands are followed until the user scrolls back. That's tracked here, not measured
+  // at redraw: when the panel narrows (seats come and go) the plot's end drops out of view.
+  let drawQueued = false, following = true;
   scroller.addEventListener("scroll", () => {
+    following = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 4;
     hideTip();
     if (drawQueued) return;
     drawQueued = true;
@@ -470,7 +482,7 @@
 
   // Hands are spaced evenly (a long break doesn't squash the session); the plot
   // scrolls sideways and the y-axis rescales to the hands in view.
-  const PAD_L = 8, PAD_T = 8, PAD_B = 20, LABEL_GAP = 100, BREAK_MS = 30 * 60000;
+  const PAD_L = 8, PAD_T = 8, PAD_B = 20, LABEL_GAP = 100, LABEL_H = 14, BREAK_MS = 30 * 60000;
   let geo = null;   // current plot geometry, shared with the scroll and hover handlers
 
   function layoutChart(series) {
@@ -478,10 +490,9 @@
     if (vw < 50 || scroller.clientHeight < 40) return;
     const n = points.length;
     const directLabels = series.length >= 2 && series.length <= 4;
-    const padR = directLabels ? 80 : 12;
+    const padR = directLabels ? 16 + 7 * Math.max(...series.map((s) => s.name.length)) : 12;   // room for the longest name
     const px = n > 1 ? Math.max(HAND_PX, (vw - PAD_L - padR) / (n - 1)) : 0;
     const width = Math.max(vw, Math.ceil(PAD_L + px * (n - 1) + padR));
-    const atEnd = !geo || scroller.scrollLeft + vw >= scroller.scrollWidth - 4;   // follow new hands
     plot.setAttribute("height", 1);    // measure height after the scrollbar (if any) appears
     plot.setAttribute("width", width);
     const H = scroller.clientHeight;
@@ -489,7 +500,7 @@
     plot.setAttribute("height", H);
     yAxis.setAttribute("height", H);
     yAxis.style.height = `${H}px`;
-    if (atEnd) scroller.scrollLeft = width;
+    if (following) scroller.scrollLeft = width;
     drawPlot();
   }
 
@@ -516,7 +527,10 @@
     const to = Math.min(n - 1, Math.ceil((scroller.scrollLeft + scroller.clientWidth - PAD_L) / (px || 1)) + 1);
     let lo = mode === "winnings" ? 0 : Infinity, hi = mode === "winnings" ? 0 : -Infinity;   // winnings: keep zero in view
     for (let i = from; i <= to; i++) {
-      const vs = [...Object.keys(pts[i].s).map((id) => value(i, id)), ...Object.keys(hands[i].outs).map((id) => leftValue(i, id))];
+      // Left and bought back in before this hand: their invested total already has the new
+      // buy-in, so leftValue isn't what they're down; the winnings line doesn't plot it either.
+      const left = Object.keys(hands[i].outs).filter((id) => mode === "stack" || !(id in pts[i].s));
+      const vs = [...Object.keys(pts[i].s).map((id) => value(i, id)), ...left.map((id) => leftValue(i, id))];
       for (const v of vs) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
     }
     if (lo === Infinity) { lo = 0; hi = 1; }
@@ -575,12 +589,11 @@
       }
     });
     if (directLabels) {
-      let prevY = -Infinity;
-      for (const e of [...ends].sort((a, b) => a.cy - b.cy)) {
-        if (e.cy - prevY < 14) continue;   // would collide: legend + tooltip carry it
-        el("text", { x: e.cx + 8, y: e.cy + 4, fill: INK.secondary, "font-size": 12 }, plot).textContent = e.s.name;
-        prevY = e.cy;
-      }
+      // Ends too close together: nudge the labels apart, keeping them in order and on the plot.
+      const labels = [...ends].sort((a, b) => a.cy - b.cy).map((e) => ({ e, y: e.cy }));
+      labels.forEach((l, i) => { if (i) l.y = Math.max(l.y, labels[i - 1].y + LABEL_H); });
+      labels.reduceRight((below, l) => (l.y = Math.min(l.y, below - LABEL_H)), H - PAD_B + LABEL_H);
+      for (const { e, y } of labels) el("text", { x: e.cx + 8, y: y + 4, fill: INK.secondary, "font-size": 12 }, plot).textContent = e.s.name;
     }
     geo.cross = el("line", { y1: PAD_T, y2: H - PAD_B, stroke: INK.muted, "stroke-width": 1, visibility: "hidden" }, plot);
   }

@@ -1,8 +1,9 @@
-// Untappd: a player whose Poker Now name is also their Untappd username gets
-// their latest check-in on their seat sign - beer, brewery, rating and ABV over
-// the check-in photo (or the beer label if there's no photo). background.js
-// fetches the profile pages; results are cached so each is re-read every few
-// minutes. The profile doesn't show ABV, so each new beer's page is read once.
+// Untappd: a player whose Poker Now name is also their Untappd username gets a
+// card in a banner on the felt, just above the table title - their avatar, latest beer,
+// brewery, rating and ABV, and the check-in photo (or the beer label if there's
+// no photo). background.js fetches the profile pages; results are cached so each
+// is re-read every few minutes. The profile doesn't show ABV, so each new beer's
+// page is read once.
 
 (() => {
   if (!/^\/games\//.test(location.pathname)) return;
@@ -10,29 +11,30 @@
   const TICK_MS = 1000;
   const FRESH_MS = 5 * 60000;     // re-read a profile this often
   const MISSING_MS = 60 * 60000;  // no such Untappd user: try again much later
-  const CACHE_KEY = "untappd2";   // v2 check-ins carry beerPath, for the ABV; v1 entries are re-read
+  const CACHE_KEY = "untappd3";   // v3 check-ins carry the avatar; older entries are re-read
   const ABV_KEY = "untappdAbv";
   const USERNAME_RE = /^[\w.-]{2,40}$/;
-  // Images go into a CSS url(), so only plain Untappd image links are allowed.
-  const IMAGE_RE = /^https:\/\/([\w-]+\.)*(untappd\.com|untp\.beer)\/[^"'\\\s()]*$/;
+  const SCROLL_PX_PER_S = 40;
+  // Only plain image links from Untappd (avatars are often on Gravatar) are allowed.
+  const IMAGE_RE = /^https:\/\/([\w-]+\.)*(untappd\.com|untp\.beer|gravatar\.com)\/[^"'\\\s()]*$/;
 
   // lowercased name -> { next: ms to re-read at, checkin: {...} | null }
   let cache = {};
   // beer page path -> "5%" ("" if the page has none); ABV doesn't change, so kept for good
   let abvs = {};
-  let enabled = false, timer = null, busy = false;
+  let enabled = false, timer = null, busy = false, bannerKey = "";
 
   // ---------- Reading a profile ----------
   // Each check-in in the feed is <div class="item" data-checkin-id="...">, with
-  // "is drinking a <a href="/b/...">Beer</a> by <a href="/w/...">Brewery</a>".
+  // "is drinking a <a href="/b/...">Beer</a> by <a href="/w/...">Brewery</a> at <a>Venue</a>".
 
   function parseCheckin(html) {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const item = doc.querySelector("#main-stream .item[data-checkin-id]");
     const beer = item?.querySelector('.checkin .text a[href^="/b/"]');
     if (!beer) return null;   // no check-ins yet, or a private profile
-    const image = (sel) => {
-      const src = item.querySelector(sel)?.getAttribute("src");
+    const image = (root, sel) => {
+      const src = root.querySelector(sel)?.getAttribute("src");
       return src && IMAGE_RE.test(src) ? src : null;
     };
     const link = item.querySelector(".bottom a.time")?.getAttribute("href");
@@ -40,9 +42,11 @@
       id: item.dataset.checkinId,
       beer: beer.textContent.trim(),
       beerPath: beer.getAttribute("href"),
-      brewery: item.querySelector('.checkin .text a[href^="/w/"]')?.textContent.trim() || "",
+      // The brewery link follows the beer's; it's /w/... or a vanity link like /shoesmith_brews.
+      brewery: beer.nextElementSibling?.matches("a") ? beer.nextElementSibling.textContent.trim() : "",
       rating: Number(item.querySelector(".caps[data-rating]")?.dataset.rating) || 0,
-      image: image(".photo img") || image("a.label img"),
+      image: image(item, ".photo img") || image(item, "a.label img"),
+      avatar: image(doc, ".user-avatar .avatar-holder img"),
       url: link?.startsWith("/") ? `https://untappd.com${link}` : null
     };
   }
@@ -79,30 +83,38 @@
     if (chrome.runtime?.id) chrome.storage.local.set({ [CACHE_KEY]: cache });
   }
 
-  // ---------- Seat signs ----------
-  // The sign (.table-player-infos-ctn) is a positioned box with its own stacking
-  // context; the name and stack sit in its right half and the avatar/status in
-  // its left, leaving a band along the top, the corner under the stack and the
-  // far bottom-left corner free. Poker Now's badges cover the top band's right end.
-  // Our layer sits at z-index -1: over the sign's own background, under its contents.
+  // ---------- Banner ----------
+  // Lives inside .table, so it scales with the game: Poker Now sizes everything in
+  // rem from the window. It fills the gap between the community cards (same left
+  // and width) and the title, which content.js prints about 65% down the table.
+  // Seats (z-index 4) and the cards (z-index 2) stay on top of it.
 
   const style = document.createElement("style");
   style.id = "clean-poker-untappd";
   style.textContent = `
-    .cp-beer { position: absolute; inset: 0; z-index: -1; container-type: size; pointer-events: none;
-      background-size: cover; background-position: center; color: #f0efec; }
-    .cp-beer > * { position: absolute; display: flex; align-items: center; gap: 4cqw; white-space: nowrap;
-      font: 600 14cqh/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; }   /* cq units: sized to the sign */
-    .cp-beer-top { left: 4cqw; right: 4cqw; top: 3cqh; height: 22cqh; }
-    .cp-beer-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-      color: inherit !important; text-decoration: none; pointer-events: auto; }
-    .cp-beer-name:hover { text-decoration: underline; }
-    .cp-beer-stats { left: 3cqw; bottom: 3cqh; flex-direction: column; align-items: flex-start; gap: 0;
-      font-size: 12cqh; }
-    .cp-beer-rating { color: #f5b82e; }
-    .cp-beer-abv { color: #c3c2b7; font-weight: 400; }
-    .cp-beer-brewery { left: 52cqw; right: 4cqw; bottom: 3cqh; height: 20cqh; overflow: hidden;
-      text-overflow: ellipsis; display: block; line-height: 20cqh; color: #c3c2b7; font-weight: 400; }`;
+    #cp-banner { position: absolute; left: 28%; width: 44%; top: 57.5%; height: 7%; z-index: 1; overflow: hidden;
+      display: flex; align-items: center; border-radius: 0.4rem; background: rgba(26,26,25,0.85);
+      mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+      font: 400 0.6rem/1.25 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .cp-banner-track { display: inline-flex; align-items: center; flex: none; margin: 0 auto; }
+    .cp-banner-track.cp-scroll { margin: 0; animation: cp-banner-scroll var(--cp-scroll-s) linear infinite; }
+    #cp-banner:hover .cp-banner-track { animation-play-state: paused; }
+    @keyframes cp-banner-scroll { to { transform: translateX(-50%); } }
+    .cp-banner-card { display: flex; align-items: center; gap: 0.4rem; padding: 0 0.8rem; white-space: nowrap;
+      color: #c3c2b7 !important; text-decoration: none; }
+    a.cp-banner-card:hover .cp-banner-beer { text-decoration: underline; }
+    .cp-banner-card img { display: block; flex: none; height: 1.5rem; width: 1.5rem; object-fit: cover; }
+    img.cp-banner-avatar { border-radius: 50%; }
+    img.cp-banner-photo { border-radius: 0.2rem; }
+    .cp-banner-name { color: #f0efec; font-weight: 600; }
+    .cp-banner-beer { color: #ffc54d; font-weight: 600; }
+    .cp-banner-rating { color: #f5b82e; }`;
+
+  const banner = document.createElement("div");
+  banner.id = "cp-banner";
+  const track = document.createElement("div");
+  track.className = "cp-banner-track";
+  banner.append(track);
 
   const playerName = (seat) => seat.querySelector(".table-player-name a")?.textContent.trim() || "";
 
@@ -113,35 +125,47 @@
     return el;
   }
 
-  function decorate(seat, checkin) {
-    const box = seat.querySelector(".table-player-infos-ctn");
-    let sign = box?.querySelector(":scope > .cp-beer");
-    if (!checkin) { sign?.remove(); return; }
-    const abv = abvs[checkin.beerPath] || "";
-    const id = `${checkin.id} ${abv}`;
-    if (!box || sign?.dataset.id === id) return;
-    if (!sign) {
-      sign = document.createElement("div");
-      sign.className = "cp-beer";
-      box.appendChild(sign);
-    }
-    sign.dataset.id = id;
-    sign.style.backgroundImage = checkin.image
-      ? `linear-gradient(rgba(20,20,20,0.55), rgba(20,20,20,0.82)), url("${checkin.image}")` : "";
+  function img(className, src) {
+    const el = document.createElement("img");
+    el.className = className;
+    el.alt = "";
+    el.src = src;
+    return el;
+  }
 
-    const name = document.createElement(checkin.url ? "a" : "span");
-    name.className = "cp-beer-name";
-    name.textContent = checkin.beer;
-    name.title = checkin.brewery ? `${checkin.beer} by ${checkin.brewery}` : checkin.beer;
-    if (checkin.url) { name.href = checkin.url; name.target = "_blank"; name.rel = "noopener"; }
-    const top = document.createElement("div");
-    top.className = "cp-beer-top";
-    top.append(name);
-    const stats = document.createElement("div");
-    stats.className = "cp-beer-stats";
-    if (checkin.rating) stats.append(span("cp-beer-rating", `★ ${checkin.rating}`));
-    if (abv) stats.append(span("cp-beer-abv", abv));
-    sign.replaceChildren(top, stats, span("cp-beer-brewery", checkin.brewery));
+  function card({ name, checkin }) {
+    const el = document.createElement(checkin.url ? "a" : "div");
+    el.className = "cp-banner-card";
+    if (checkin.url) { el.href = checkin.url; el.target = "_blank"; el.rel = "noopener"; }
+    const first = document.createElement("div");
+    first.append(span("cp-banner-name", name), " · ", span("cp-banner-beer", checkin.beer));
+    const second = document.createElement("div");
+    const details = [["", checkin.brewery], ["cp-banner-rating", checkin.rating && `★ ${checkin.rating}`], ["", abvs[checkin.beerPath]]];
+    details.filter(([, value]) => value).forEach(([className, value], i) => second.append(i ? " · " : "", span(className, value)));
+    const text = document.createElement("div");
+    text.append(first, second);
+    if (checkin.avatar) el.append(img("cp-banner-avatar", checkin.avatar));
+    el.append(text);
+    if (checkin.image) el.append(img("cp-banner-photo", checkin.image));
+    return el;
+  }
+
+  function showBanner(players) {
+    const table = document.querySelector(".table");
+    if (!players.length || !table) { banner.remove(); bannerKey = ""; return; }
+    if (banner.parentElement !== table) table.appendChild(banner);
+    const key = JSON.stringify([players, players.map((p) => abvs[p.checkin.beerPath])]);
+    if (key === bannerKey) return;
+    bannerKey = key;
+    track.classList.remove("cp-scroll");
+    track.replaceChildren(...players.map(card));
+    // Too wide to fit: scroll two copies, so the second slides in behind the first.
+    const width = track.offsetWidth;
+    if (width > banner.clientWidth) {
+      track.append(...[...track.children].map((el) => el.cloneNode(true)));
+      track.style.setProperty("--cp-scroll-s", `${width / SCROLL_PX_PER_S}s`);
+      track.classList.add("cp-scroll");
+    }
   }
 
   function tick() {
@@ -150,12 +174,14 @@
     if (!chrome.runtime?.id) { clearInterval(timer); return; }
     if (!style.isConnected) document.head.appendChild(style);
     let due = null;
+    const players = [];
     for (const seat of document.querySelectorAll(".table-player:not(.table-player-seat)")) {
       const name = playerName(seat);
       const entry = USERNAME_RE.test(name) ? cache[name.toLowerCase()] : null;
-      decorate(seat, entry?.checkin);
+      if (entry?.checkin) players.push({ name, checkin: entry.checkin });
       if (USERNAME_RE.test(name) && !(entry?.next > Date.now())) due ??= name;
     }
+    showBanner(players);
     if (due && !busy) refresh(due);   // one profile at a time
   }
 
@@ -169,11 +195,12 @@
       const stored = await chrome.storage.local.get([CACHE_KEY, ABV_KEY]);
       cache = stored[CACHE_KEY] || {};
       abvs = stored[ABV_KEY] || {};
-      chrome.storage.local.remove("untappd");   // v1 cache
+      chrome.storage.local.remove(["untappd", "untappd2"]);   // older caches
       if (enabled) timer = setInterval(tick, TICK_MS);   // unless switched off meanwhile
     } else {
       style.remove();
-      document.querySelectorAll(".cp-beer").forEach((el) => el.remove());
+      banner.remove();
+      bannerKey = "";
     }
   }
 

@@ -6,6 +6,7 @@ const DEFAULTS = {
   tableTitle: "vNBT Poker Challenge",
   stackChart: true,
   winOdds: true,
+  winCapture: true,
   untappd: true
 };
 

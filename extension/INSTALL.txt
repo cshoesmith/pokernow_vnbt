@@ -7,9 +7,13 @@ What it does (on pokernow.com game pages):
     gold coin where someone bought back in, and a Winnings view (stack minus
     what they put in); its Table view shows each player's ledger result
   - Live "win chance" badge next to your seat during a hand
-  - Untappd: if your Poker Now name is your Untappd username, your seat
-    shows your latest check-in (beer, brewery, rating, ABV
-    and photo)
+  - Saves a screenshot to Downloads\vNBT Poker when a pot goes to a royal
+    flush, straight flush, four of a kind or ace-high straight (the game
+    tab must be in front). Chrome lists this as access to all sites; only
+    the game tab is ever captured
+  - Untappd: if your Poker Now name is your Untappd username, a scrolling
+    banner above the table title shows your avatar and latest check-in
+    (beer, brewery, rating, ABV and photo)
   - Hides the promo link, chat and video buttons (each can be turned back on)
 
 Install (about 1 minute):
@@ -23,7 +27,7 @@ Install (about 1 minute):
 
 Tip - show your beer:
   Join the game with your Untappd username as your Poker Now name, and
-  your seat will show what you're drinking. Use the username from your
+  the banner will show what you're drinking. Use the username from your
   profile link (untappd.com/user/<username>), not your display name.
   Your Untappd profile needs to be public; new check-ins show up within
   a few minutes.

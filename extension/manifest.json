@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
   "name": "vNBT Poker",
-  "version": "1.3.1",
-  "description": "Poker Now add-ons: beer-themed table with your own title, chip stack chart, live win chance for your hand, Untappd check-ins on seats, and less clutter.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://untappd.com/*"],
+  "version": "1.4.0",
+  "description": "Poker Now add-ons: beer-themed table with your own title, chip stack chart, live win chance for your hand, automatic screenshots of big hands, an Untappd check-in banner, and less clutter.",
+  "permissions": ["storage", "downloads"],
+  "host_permissions": ["https://untappd.com/*", "<all_urls>"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": ["https://www.pokernow.com/*", "https://pokernow.com/*"],
-      "js": ["content.js", "chart.js", "winodds.js", "untappd.js"],
+      "js": ["content.js", "hands.js", "chart.js", "winodds.js", "capture.js", "untappd.js"],
       "run_at": "document_start"
     }
   ],
@@ -19,8 +19,19 @@
       "matches": ["https://www.pokernow.com/*", "https://pokernow.com/*"]
     }
   ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
     "default_title": "vNBT Poker",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
   }
 }
