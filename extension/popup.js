@@ -4,6 +4,7 @@ const DEFAULTS = {
   videoControls: true,
   beerTheme: true,
   tableTitle: "vNBT Poker Challenge",
+  holidayWorkaround: false,
   stackChart: true,
   winOdds: true,
   winCapture: true,

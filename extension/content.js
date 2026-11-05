@@ -7,10 +7,15 @@ const RULES = {
   videoControls: ".conf-controls"               // JOIN / camera / mic box
 };
 
-// Poker Now sets the table image (e.g. design-themes-elements/felt/hw26-felt-l.png)
-// as an inline background on .table, so we can match on it and swap in our own
-// table drawn with the same geometry.
+// Poker Now's landscape table image is 1889x892, set from its stylesheet, or for
+// seasonal themes (e.g. design-themes-elements/felt/hw26-felt-l.png) as an inline
+// background on .table. Our table is drawn with the same geometry and overrides
+// either one; portrait uses a vertical table image, so it is left alone.
 const BEER_TABLE = chrome.runtime.getURL("beer-table.svg");
+
+// How the beer table was matched during Halloween 2026, kept behind the
+// "Holidays workaround" switch in case a seasonal theme's table isn't caught above.
+const HOLIDAY_TABLE = '.table[style*="-felt-l.png"]';
 
 const DEFAULTS = {
   promoLink: true,
@@ -18,6 +23,7 @@ const DEFAULTS = {
   videoControls: true,
   beerTheme: true,
   tableTitle: "vNBT Poker Challenge",
+  holidayWorkaround: false,
   stackChart: true
 };
 
@@ -40,10 +46,11 @@ function titleLayer(text) {
   return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;
 }
 
-function beerCss(title) {
+function beerCss(title, holidays) {
   const layers = [`url("${BEER_TABLE}")`];
   if (title.trim()) layers.unshift(titleLayer(title.trim()));
-  return `.table[style*="-felt-l.png"] {
+  const selector = holidays ? `.landscape .table, ${HOLIDAY_TABLE}` : ".landscape .table";
+  return `${selector} {
   background-image: ${layers.join(", ")} !important;
   background-size: cover !important;
   background-position: 50% 50% !important;
@@ -60,7 +67,7 @@ function apply(settings) {
   if (settings.stackChart) selectors.push(LOG_BUTTON);
   const css = [];
   if (selectors.length) css.push(`${selectors.join(",\n")} { display: none !important; }`);
-  if (settings.beerTheme) css.push(beerCss(settings.tableTitle));
+  if (settings.beerTheme) css.push(beerCss(settings.tableTitle, settings.holidayWorkaround));
   style.textContent = css.join("\n\n");
 }
 

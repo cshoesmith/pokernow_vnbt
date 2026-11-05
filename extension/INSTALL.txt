@@ -35,6 +35,8 @@ Tip - show your beer:
 Settings:
   Click the puzzle-piece icon in Chrome's toolbar, pin "vNBT Poker",
   then click its icon to turn features on or off and change the table title.
+  If the beer table goes missing while Poker Now has a holiday theme on
+  (Halloween, Christmas...), tick "Holidays workaround".
 
 Updating to a new version:
   Replace the folder's contents with the new files, then click the
