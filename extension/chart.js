@@ -168,6 +168,8 @@
   // A player's first buy-in is just their starting stack; later ones (once they've
   // played a hand) are rebuys and get a coin, on their next hand. Anyone with no
   // buy-in in the log is taken to have bought in for their first stack.
+  // The coin is the net of the changes since: an admin who approves 1,000,000 by
+  // mistake and resets it to 5,000 has bought them in for 5,000, not 1,000,000.
   function handLedger() {
     const invested = {}, seen = new Set(), pending = {};
     let e = 0;
@@ -176,12 +178,13 @@
       for (; e < data.events.length && data.events[e].c < p.c; e++) {
         const { id, kind, amount } = data.events[e];
         invested[id] = (invested[id] || 0) + (kind === "in" ? amount : -amount);
-        if (kind === "in" && amount > 0 && seen.has(id)) pending[id] = (pending[id] || 0) + amount;
+        if (kind === "in" && seen.has(id)) pending[id] = Math.round(((pending[id] || 0) + amount) * 100) / 100;
         if (kind === "out") outs[id] = amount;
       }
       for (const id in p.s) {
         if (!(id in invested)) invested[id] = p.s[id];
-        if (pending[id]) { coins[id] = pending[id]; delete pending[id]; }
+        if (pending[id] > 0) coins[id] = pending[id];
+        delete pending[id];
         seen.add(id);
       }
       return { invested: { ...invested }, coins, outs };
