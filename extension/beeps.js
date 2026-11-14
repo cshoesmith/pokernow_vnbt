@@ -12,8 +12,6 @@
 // tab where page timers are slowed, and are called off the moment the turn ends.
 
 (() => {
-  if (!/^\/games\//.test(location.pathname)) return;
-
   const WARN_AT = [10, 5, 4, 3, 2, 1];   // seconds left
   const MIN_GAP_MS = 100;                 // sample the bars at most this often
   const FALLBACK_MS = 500;                // and at least this often while the tab is in front
@@ -117,7 +115,7 @@
     const now = performance.now();
     lastSample = now;
     const bars = document.querySelector(".table-player.you-player.decision-current .time-to-talk");
-    if (!enabled || !bars) { endTurn(); return; }
+    if (!enabled || !bars || !cpGame.id) { endTurn(); return; }   // cpGame: content.js
     const width = (sel) => parseFloat(bars.querySelector(sel)?.style.width) || 0;
     const r = width(".normal-time") + width(".time-bank");
     // The bars filled back up: a new turn straight after the last, or more time.

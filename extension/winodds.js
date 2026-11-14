@@ -3,8 +3,6 @@
 // random (Monte Carlo). Shown as a small badge beside your seat.
 
 (() => {
-  if (!/^\/games\//.test(location.pathname)) return;
-
   const { readCards, score } = cpHands;
   const ITERATIONS = 4000;
   const TICK_MS = 500;
@@ -81,7 +79,7 @@
   let enabled = false, lastKey = "", timer = null;
 
   function tick() {
-    const state = readState();
+    const state = cpGame.id && readState();   // off a game page (cpGame, content.js), nothing to show
     if (!state) { badge.style.display = "none"; lastKey = ""; return; }
     if (!badge.isConnected) document.body.appendChild(badge);
 

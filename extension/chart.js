@@ -4,11 +4,6 @@
 // game, so only new log pages are fetched; the table view uses Poker Now's ledger.
 
 (() => {
-  const match = location.pathname.match(/^\/games\/([\w-]+)/);
-  if (!match) return;
-
-  const GAME_ID = match[1];
-  const CACHE_KEY = `stacks2:${GAME_ID}`;   // v2 adds buy-in events; v1 caches are refetched
   const PAGE_DELAY_MS = 1200;   // the log endpoint rate-limits quick paging
   const RETRY_MS = 10000;
   const POLL_MS = 20000;
@@ -36,6 +31,10 @@
   let view = "chart";
   let mode = "stack";  // or "winnings"
   let expanded = false;   // shown as a large modal instead of in the corner
+  // The game on screen (cpGame, content.js), and where its history is cached
+  // (stacks2: v2 added buy-in events; v1 caches are refetched).
+  let gameId = null, cacheKey = null;
+  let ready = false;   // its cached history is in: the log can be read on top of it
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -78,9 +77,10 @@
     return null;
   }
 
-  async function fetchLedger() {
+  async function fetchLedger(game) {
     try {
-      const infos = (await (await fetch(`/games/${GAME_ID}/players_sessions`)).json()).playersInfos;
+      const infos = (await (await fetch(`/games/${game}/players_sessions`)).json()).playersInfos;
+      if (game !== gameId) return;   // moved to another game meanwhile
       ledger = {};
       for (const id in infos) {
         ledger[id] = { inGame: Number(infos[id].inGame) || 0, net: Number(infos[id].net) || 0 };
@@ -91,18 +91,22 @@
     }
   }
 
-  async function fetchPage(before) {
+  async function fetchPage(game, before) {
     for (;;) {
-      const res = await fetch(`/games/${GAME_ID}/log?before_at=${before ?? ""}&after_at=&mm=false&v=2`, { signal: AbortSignal.timeout(FETCH_MS) });
+      const res = await fetch(`/games/${game}/log?before_at=${before ?? ""}&after_at=&mm=false&v=2`, { signal: AbortSignal.timeout(FETCH_MS) });
       const text = await res.text();
       if (text.startsWith("{")) return JSON.parse(text).logs || [];
+      if (game !== gameId) return [];   // moved to another game: give up on this one
       await sleep(RETRY_MS);   // "Too many requests" - back off and retry
     }
   }
 
   // Walk the log from newest backwards until we reach what we already have.
+  // If the tab moves to another game meanwhile, what was read is dropped and the
+  // new game is read instead.
   async function sync() {
-    if (syncing) return;
+    const game = gameId;
+    if (syncing || !game || !ready) return;
     syncing = true;
     syncNames = {};
     try {
@@ -110,7 +114,8 @@
       let before = null;
       let newest = null;
       for (;;) {
-        const logs = await fetchPage(before);
+        const logs = await fetchPage(game, before);
+        if (game !== gameId) return;
         if (!logs.length) break;
         if (newest === null) newest = Number(logs[0].created_at);
         let reachedKnown = false;
@@ -134,15 +139,17 @@
         data.points = data.points.concat(fresh.reverse());
         data.events = data.events.concat(freshEvents.reverse());
         Object.assign(data.names, syncNames);
-        chrome.storage.local.set({ [CACHE_KEY]: data });
+        chrome.storage.local.set({ [cacheKey]: data });
       }
-      if (sawNew || !ledger) await fetchLedger();
+      if (sawNew || !ledger) await fetchLedger(game);
+      if (game !== gameId) return;
       loaded = true;
       render();
     } catch (err) {
       console.warn("vNBT Poker: chart update failed, trying again at the next poll", err);   // offline, say
     } finally {
       syncing = false;
+      if (game !== gameId && enabled && gameId) sync();   // read the game the tab moved to
     }
   }
 
@@ -389,6 +396,7 @@
 
   function place() {
     if (!enabled) return;
+    if (!gameId) { panel.style.display = "none"; return; }
     if (!panel.isConnected) document.body.appendChild(panel);
     const host = document.querySelector(".game-main-container");
     if (!host) { panel.style.display = "none"; return; }
@@ -647,24 +655,49 @@
 
   let pollTimer = null;
 
-  async function start() {
-    const stored = await chrome.storage.local.get([CACHE_KEY, "chartMode"]);
-    const cached = stored[CACHE_KEY];
+  // Show the game on screen: its cached history straight away, then what's new in its log.
+  async function loadGame() {
+    const game = gameId, key = cacheKey;
+    const stored = await chrome.storage.local.get([key, "chartMode"]);
+    if (game !== gameId || !enabled) return;   // moved on, or switched off, meanwhile
+    const cached = stored[key];
     // Caches from before buy-ins (events) or the last hand's end (lastEnd) were tracked are rebuilt.
     if (cached && Array.isArray(cached.points) && Array.isArray(cached.events) && "lastEnd" in cached) {
       data = cached;
       loaded = cached.points.length > 0;
     }
+    ready = true;
     setMode(stored.chartMode === "winnings" ? "winnings" : "stack");
-    chrome.storage.local.remove(`stacks:${GAME_ID}`);   // v1 cache, no buy-ins
+    chrome.storage.local.remove(`stacks:${game}`);   // v1 cache, no buy-ins
     setExpanded(false);   // sets the button's icon and places the panel
     if (loaded) render(); else setStatus("Loading hand history…");
-    await sync();
+    sync();
+  }
+
+  function start() {
+    clearInterval(pollTimer);
     pollTimer = setInterval(() => {
       // Extension reloaded: this copy can't save any more; the refreshed tab's copy takes over.
       if (!chrome.runtime?.id) clearInterval(pollTimer);
       else if (!document.hidden) sync();
     }, POLL_MS);
+    if (gameId) loadGame();
+  }
+
+  // The tab moved to another game, or off one (cpGame, content.js): start that game's chart afresh.
+  function switchGame(id) {
+    gameId = id;
+    cacheKey = id && `stacks2:${id}`;
+    data = { newest: null, points: [], events: [], names: {}, lastEnd: null };
+    points = []; ledger = null; hands = []; geo = null;
+    loaded = false; ready = false; following = true;
+    for (const el of [plot, yAxis, $(".cp-legend"), $(".cp-table")]) el.replaceChildren();
+    hideTip();
+    if (!enabled) return;
+    if (!id) {
+      if (expanded) setExpanded(false);
+      panel.style.display = "none";
+    } else if (document.body) loadGame();   // before then, start() loads it once the page is ready
   }
 
   function setEnabled(on) {
@@ -679,6 +712,7 @@
     }
   }
 
+  cpGame.watch(switchGame);
   window.addEventListener("resize", place);
   setInterval(place, 1000);   // players sit down and the app re-renders its layout; keep clear of them
 

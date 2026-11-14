@@ -1,6 +1,28 @@
 // Restyles the Poker Now UI via an injected stylesheet. CSS rules apply to
 // elements as soon as the app renders them, so no DOM watching is needed.
 
+// Which game this tab is showing, for the other scripts. Poker Now can go from
+// its home page to a game, or from one game to the next, without loading a new
+// page, so they can't just read the address once when the page loads: that left
+// them off until F5. cpGame.id is the game's id, or null off a game page;
+// cpGame.watch(fn) calls fn(id) now and whenever it changes.
+const cpGame = (() => {
+  const read = () => location.pathname.match(/^\/games\/([\w-]+)/)?.[1] ?? null;
+  let id = read();
+  const listeners = [];
+  function check() {
+    // The extension was reloaded or updated: the new copy takes over once the tab is refreshed.
+    if (!chrome.runtime?.id) { clearInterval(timer); return; }
+    const now = read();
+    if (now === id) return;
+    id = now;
+    for (const fn of listeners) fn(id);
+  }
+  const timer = setInterval(check, 500);
+  addEventListener("popstate", check);
+  return { get id() { return id; }, watch(fn) { listeners.push(fn); fn(id); } };
+})();
+
 const RULES = {
   promoLink: ".help-link-game",                 // "Polymarket & Poker Now / Join our Squad"
   chat: ".game-main-container > .chat",         // chat messages + new message button

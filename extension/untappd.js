@@ -6,8 +6,6 @@
 // page is read once.
 
 (() => {
-  if (!/^\/games\//.test(location.pathname)) return;
-
   const TICK_MS = 1000;
   const FRESH_MS = 5 * 60000;     // re-read a profile this often
   const MISSING_MS = 60 * 60000;  // no such Untappd user: try again much later
@@ -172,6 +170,7 @@
     // The extension was reloaded or updated: this copy can't reach Chrome any more.
     // The new copy takes over once the tab is refreshed.
     if (!chrome.runtime?.id) { clearInterval(timer); return; }
+    if (!cpGame.id) { showBanner([]); return; }   // off a game page (cpGame, content.js)
     if (!style.isConnected) document.head.appendChild(style);
     let due = null;
     const players = [];

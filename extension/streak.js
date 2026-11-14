@@ -5,10 +5,6 @@
 // in, and "collected ... from pot" who won (both players, on a split pot).
 
 (() => {
-  const match = location.pathname.match(/^\/games\/([\w-]+)/);
-  if (!match) return;
-
-  const GAME_ID = match[1];
   const TICK_MS = 1000;
   const AFTER_WIN_MS = 2000;   // the pot is logged as it's awarded; give the log a moment
   const POLL_MS = 60000;       // in case a hand ended while the tab was in the background
@@ -35,6 +31,7 @@
   let streaks = {};     // playerId -> hands won in a row
   let names = {};       // playerId -> current name
   let lastEnd = null;   // created_at of the latest hand counted
+  let gameId = null;    // the game on screen (cpGame, content.js); the streaks are its
   let enabled = false, busy = false, again = false, wonBefore = false;
   let tickTimer = null, pollTimer = null, updateTimer = null;
 
@@ -45,11 +42,12 @@
   const STACK_RE = /#\d+ "(.+?) @ ([\w-]+)" \(/g;
   const COLLECTED_RE = /^"(.+?) @ ([\w-]+)" collected /;
 
-  async function fetchPage(before) {
+  async function fetchPage(game, before) {
     for (;;) {
-      const res = await fetch(`/games/${GAME_ID}/log?before_at=${before}&after_at=&mm=false&v=2`, { signal: AbortSignal.timeout(FETCH_MS) });
+      const res = await fetch(`/games/${game}/log?before_at=${before}&after_at=&mm=false&v=2`, { signal: AbortSignal.timeout(FETCH_MS) });
       const text = await res.text();
       if (text.startsWith("{")) return JSON.parse(text).logs || [];
+      if (game !== gameId) return [];   // moved to another game: give up on this one
       await sleep(RETRY_MS);   // "Too many requests" - back off and retry
     }
   }
@@ -86,7 +84,8 @@
   // far enough for a few hands), then count what's new. Just after a win
   // (expectNew), try again shortly if the hand hasn't reached the log yet.
   async function update(expectNew = false) {
-    if (!enabled) return;
+    const game = gameId;
+    if (!enabled || !game) return;
     if (busy) { again = true; return; }
     busy = true;
     let retry = false;
@@ -94,7 +93,8 @@
       const logs = [];
       let before = "", reached = false;
       for (let page = 0; page < MAX_PAGES; page++) {
-        const batch = await fetchPage(before);
+        const batch = await fetchPage(game, before);
+        if (game !== gameId) return;   // moved to another game meanwhile: drop what this read
         if (!batch.length) { reached = true; break; }   // the start of the game
         logs.push(...batch);
         const oldest = batch[batch.length - 1].created_at;
@@ -321,6 +321,15 @@
       style.remove();
     }
   }
+
+  // A new game on screen (or none): its streaks start from its own log.
+  cpGame.watch((id) => {
+    gameId = id;
+    streaks = {}; names = {}; lastEnd = null; wonBefore = false;
+    clearTimeout(updateTimer);
+    render();   // puts out the last game's flames
+    if (enabled && id) update();
+  });
 
   window.addEventListener("resize", render);
   document.addEventListener("visibilitychange", () => { if (enabled && !document.hidden) update(); });

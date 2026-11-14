@@ -4,8 +4,6 @@
 // (your own cards are always readable, shown or not).
 
 (() => {
-  if (!/^\/games\//.test(location.pathname)) return;
-
   const { readCards, score, bigHand } = cpHands;
   const TICK_MS = 500;
   const SETTLE_MS = 1000;   // let the last cards and chips land
@@ -23,7 +21,8 @@
   function tick() {
     // The extension was reloaded or updated: this copy can't reach Chrome any more.
     if (!chrome.runtime?.id) { clearInterval(timer); return; }
-    if (!document.querySelector(".table-player.winner")) { captured = ""; return; }
+    // Off a game page (cpGame, content.js), or no pot awarded yet.
+    if (!cpGame.id || !document.querySelector(".table-player.winner")) { captured = ""; return; }
     const board = readCards(document.querySelectorAll(".table-cards .card-container"));
     const key = board.join();
     if (key === captured || document.hidden) return;   // once a hand; a tab behind others has nothing to show
