@@ -8,7 +8,9 @@ const DEFAULTS = {
   stackChart: true,
   winOdds: true,
   winCapture: true,
-  untappd: true
+  untappd: true,
+  winStreak: true,
+  turnBeeps: true
 };
 
 chrome.storage.sync.get(DEFAULTS, (settings) => {
