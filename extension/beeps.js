@@ -22,40 +22,51 @@
   const MOVE_MS = 250;                    // re-plan the beeps if the deadline moves more than this
 
   let enabled = false, timer = null, observer = null, ctx = null;
+  let volume = 0.8;      // the popup's slider, 0.1 to 1
   let turn = null;       // { samples: [{ t, r }], deadline, beeps: Map(secondsLeft -> { when, nodes }) }
   let lastRate = null;   // %/ms the bars fell at last turn
   let lastSample = 0;
+  // For the popup's Test button: how many of your turns were timed since the tab
+  // loaded, and how the last one went.
+  const stats = { turns: 0, planned: 0, firstLeft: null, blocked: 0 };
 
   // ---------- Sound ----------
 
-  // Chrome only lets a page make sound after it's been clicked or typed in; players
-  // click their way through a game, so the audio is woken on the first of those.
+  // Chrome only lets a page make sound after it's been clicked or typed in, and
+  // logs a warning if audio is started any sooner. Players click their way through
+  // a game, so the audio is started on the first of those, and not before.
   function audio() {
+    if (!navigator.userActivation?.hasBeenActive) return null;
     try {
       ctx ??= new AudioContext();
       if (ctx.state === "suspended") ctx.resume();
     } catch { /* no audio available */ }
     return ctx;
   }
-  for (const type of ["pointerdown", "keydown"]) {
+  for (const type of ["pointerdown", "pointerup", "click", "keydown"]) {   // a tap counts on release
     addEventListener(type, () => { if (enabled) audio(); }, { capture: true, passive: true });
   }
 
-  // One short tone: 10 seconds left is a soft double beep, 5 and 4 a beep, the last 3 higher and louder.
+  // One beep: 10 seconds left is a double beep, 5 and 4 a beep, the last 3 higher
+  // and at full volume. A square wave with its harshest overtones filtered off: it
+  // carries over laptop speakers and chatter far better than a pure tone.
   function tone(when, left) {
     const pitch = left > 5 ? 660 : left > 3 ? 880 : 1175;
-    const volume = left > 5 ? 0.18 : left > 3 ? 0.25 : 0.35;
+    const level = (left > 5 ? 0.6 : left > 3 ? 0.8 : 1) * volume;
     const nodes = [];
-    for (const start of left > 5 ? [when, when + 0.16] : [when]) {
-      const osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.type = "sine";
+    for (const start of left > 5 ? [when, when + 0.2] : [when]) {
+      const osc = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+      osc.type = "square";
       osc.frequency.value = pitch;
+      filter.type = "lowpass";
+      filter.frequency.value = 3200;
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
-      osc.connect(gain).connect(ctx.destination);
+      gain.gain.exponentialRampToValueAtTime(level, start + 0.01);
+      gain.gain.setValueAtTime(level, start + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.17);
+      osc.connect(filter).connect(gain).connect(ctx.destination);
       osc.start(start);
-      osc.stop(start + 0.14);
+      osc.stop(start + 0.18);
       nodes.push(osc);
     }
     return nodes;
@@ -68,8 +79,9 @@
   // (Re)plan the beeps for a turn ending at `deadline` (performance.now() ms).
   // Beeps already heard stay heard; the rest move to the new deadline.
   function plan(deadline) {
-    if (!audio() || ctx.state !== "running") return;
+    if (!audio() || ctx.state !== "running") { turn.blocked ||= (stats.blocked++, true); return; }
     if (turn.deadline != null && Math.abs(deadline - turn.deadline) < MOVE_MS) return;
+    if (turn.deadline == null) stats.firstLeft = Math.round((deadline - performance.now()) / 100) / 10;
     turn.deadline = deadline;
     const end = ctx.currentTime + (deadline - performance.now()) / 1000;
     for (const left of WARN_AT) {
@@ -80,6 +92,7 @@
       const when = end - left;
       if (when > ctx.currentTime + 0.02) turn.beeps.set(left, { when, nodes: tone(when, left) });
     }
+    stats.planned = turn.beeps.size;
   }
 
   function endTurn() {
@@ -109,7 +122,12 @@
     const r = width(".normal-time") + width(".time-bank");
     // The bars filled back up: a new turn straight after the last, or more time.
     if (turn && r > turn.samples[turn.samples.length - 1].r + 1) endTurn();
-    turn ??= { samples: [], deadline: null, beeps: new Map() };
+    if (!turn) {
+      turn = { samples: [], deadline: null, beeps: new Map(), blocked: false };
+      stats.turns++;
+      stats.planned = 0;
+      stats.firstLeft = null;
+    }
     const s = turn.samples;
     if (!s.length || s[s.length - 1].r !== r) s.push({ t: now, r });
     while (s.length > 2 && now - s[0].t > FIT_MS) s.shift();
@@ -153,8 +171,25 @@
     }
   }
 
-  chrome.storage.sync.get({ turnBeeps: true }, (s) => setEnabled(s.turnBeeps));
+  // The popup's Test button: play the 10-second and last-3 sounds here, and report
+  // whether Chrome is letting this tab make sound and what the last turns did.
+  chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+    if (msg?.type !== "beeps-test") return;
+    const c = enabled ? audio() : null;
+    if (c?.state === "running") {
+      tone(c.currentTime + 0.05, 10);
+      tone(c.currentTime + 0.7, 3);
+    }
+    const state = c ? c.state : !enabled ? "off" : navigator.userActivation?.hasBeenActive ? "unavailable" : "suspended";
+    reply({ enabled, audio: state, ...stats });
+  });
+
+  const setVolume = (v) => { volume = Math.min(1, Math.max(0.1, Number(v) / 100 || 0.8)); };
+
+  chrome.storage.sync.get({ turnBeeps: true, beepVolume: 80 }, (s) => { setVolume(s.beepVolume); setEnabled(s.turnBeeps); });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "sync" && changes.turnBeeps) setEnabled(changes.turnBeeps.newValue);
+    if (area !== "sync") return;
+    if (changes.beepVolume) setVolume(changes.beepVolume.newValue);   // beeps already planned keep their level
+    if (changes.turnBeeps) setEnabled(changes.turnBeeps.newValue);
   });
 })();

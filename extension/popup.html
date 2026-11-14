@@ -9,6 +9,12 @@
     label { display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; }
     input[type="text"] { width: 100%; box-sizing: border-box; padding: 5px 7px; margin-top: 4px;
       background: #2c2c33; color: #eee; border: 1px solid #45454f; border-radius: 4px; font: inherit; }
+    .row { display: flex; align-items: center; gap: 8px; padding: 2px 0 0 22px; }
+    .row input[type="range"] { flex: 1; min-width: 0; }
+    button { background: #2c2c33; color: #eee; border: 1px solid #45454f; border-radius: 4px; font: inherit; padding: 3px 10px; cursor: pointer; }
+    button:hover { border-color: #6a6a76; }
+    #beepStatus { margin: 6px 0 0 22px; font-size: 12px; color: #bbb; }
+    #beepStatus:empty { display: none; }
   </style>
 </head>
 <body>
@@ -29,6 +35,11 @@
   <label><input type="checkbox" id="untappd"> Untappd beer banner</label>
   <h2>Sound</h2>
   <label><input type="checkbox" id="turnBeeps"> Turn timer beeps</label>
+  <div class="row">
+    <input type="range" id="beepVolume" min="10" max="100" step="5" title="Beep volume">
+    <button type="button" id="testBeeps">Test</button>
+  </div>
+  <p id="beepStatus"></p>
   <script src="popup.js"></script>
 </body>
 </html>
