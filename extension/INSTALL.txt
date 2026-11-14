@@ -16,7 +16,9 @@ What it does (on pokernow.com game pages):
     (beer, brewery, rating, ABV and photo)
   - Win streak flames: a player who wins hands in a row gets flames round
     their name - small after one win, bigger after two, biggest from three.
-    Any hand they're dealt into and don't win (folding too) puts them out
+    Any hand they're dealt into and don't win (folding too) puts them out.
+    Five in a row sets off a nuclear blast over their name, and so does
+    every win after that until the streak ends
   - Turn timer beeps: on your turn, a double beep at 10 seconds left,
     then a beep every second from 5 (higher for the last 3). Works with
     the game tab in the background, once you've clicked in the game.
