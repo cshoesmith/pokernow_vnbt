@@ -15,7 +15,9 @@
   const SEED_HANDS = 10;       // first read: enough hands for everyone's current streak
   const BLAST_FROM = 5;        // wins in a row from which each win sets off the nuclear blast
   const BLAST_FRESH_MS = 60000;   // only for a hand that's just ended, not one caught up on later
-  const BLAST_MS = 4200;
+  const BLAST_PACE = 1.5;      // how slowly the blast plays: 1 is its original 4 seconds
+  const BLAST_MS = Math.round(4200 * BLAST_PACE);
+  const paced = (seconds) => `${+(seconds * BLAST_PACE).toFixed(2)}s`;   // a blast timing, slowed
 
   // Sizes in rem, so the flames scale with the table (Poker Now sizes it in rem):
   // the tongues along the top (height, width), those up the sides, and the glow.
@@ -192,32 +194,33 @@
     .cp-nuke i, .cp-nuke b { position: absolute; display: block; }
     .cp-nuke-flash { left: calc(var(--s) * -0.9); top: calc(var(--s) * -0.9); width: calc(var(--s) * 1.8); height: calc(var(--s) * 1.8);
       border-radius: 50%; background: radial-gradient(circle, #fff 0, #fff6c8 22%, rgba(255,190,90,0.75) 42%, rgba(255,120,40,0) 70%);
-      animation: cp-nuke-flash 0.8s ease-out both; }
+      animation: cp-nuke-flash ${paced(0.8)} ease-out both; }
     .cp-nuke-ring { left: calc(var(--s) * -0.6); top: calc(var(--s) * -0.18); width: calc(var(--s) * 1.2); height: calc(var(--s) * 0.36);
       border-radius: 50%; border: calc(var(--s) * 0.012) solid rgba(255,236,200,0.9);
       box-shadow: 0 0 12px rgba(255,200,120,0.8), inset 0 0 12px rgba(255,200,120,0.6);
-      animation: cp-nuke-ring 1.3s ease-out 0.1s both; }
-    .cp-nuke-cloud { left: 0; top: 0; animation: cp-nuke-cool 3.9s ease-in both; }
+      animation: cp-nuke-ring ${paced(1.3)} ease-out ${paced(0.1)} both; }
+    .cp-nuke-cloud { left: 0; top: 0; animation: cp-nuke-cool ${paced(3.9)} ease-in both; }
     .cp-nuke-dust { left: calc(var(--s) * -0.5); top: calc(var(--s) * -0.12); width: calc(var(--s) * 1); height: calc(var(--s) * 0.24);
       border-radius: 50%; background: radial-gradient(closest-side, rgba(150,80,40,0.85), rgba(110,60,35,0.5) 60%, rgba(80,50,30,0));
-      animation: cp-nuke-dust 2.2s cubic-bezier(0.2, 0.7, 0.3, 1) 0.1s both; }
+      animation: cp-nuke-dust ${paced(2.2)} cubic-bezier(0.2, 0.7, 0.3, 1) ${paced(0.1)} both; }
     .cp-nuke-stem { left: calc(var(--s) * -0.12); top: calc(var(--s) * -0.85); width: calc(var(--s) * 0.24); height: calc(var(--s) * 0.85);
       clip-path: polygon(33% 0, 67% 0, 92% 100%, 8% 100%); filter: blur(calc(var(--s) * 0.006)); transform-origin: 50% 100%;
       background: linear-gradient(to top, rgba(120,40,10,0) 0, #a83a12 14%, #ff7a1a 55%, #ffd27a 100%);
-      animation: cp-nuke-stem 1.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+      animation: cp-nuke-stem ${paced(1.4)} cubic-bezier(0.2, 0.7, 0.3, 1) both; }
     .cp-nuke-cap { left: 0; top: 0; width: 0; height: 0;
-      animation: cp-nuke-cap 1.5s cubic-bezier(0.15, 0.75, 0.3, 1) both, cp-nuke-drift 2.4s linear 1.5s forwards; }
+      animation: cp-nuke-cap ${paced(1.5)} cubic-bezier(0.15, 0.75, 0.3, 1) both,
+        cp-nuke-drift ${paced(2.4)} linear ${paced(1.5)} forwards; }
     .cp-nuke-cap b { border-radius: 50%; filter: blur(calc(var(--s) * 0.012));
       background: radial-gradient(circle at 45% 40%, #fff4c4 0, #ffc457 22%, #ff7b22 45%, #b9381a 70%, rgba(90,30,15,0) 100%); }
     .cp-nuke-cap b.cp-nuke-under { transform: scaleY(0.45);
       background: radial-gradient(closest-side, #ff8a2a 0, #b33a16 50%, rgba(80,25,12,0) 100%); }
     .cp-nuke-debris { left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: #ffd27a;
-      box-shadow: 0 0 6px 2px rgba(255,150,60,0.9); animation: cp-nuke-debris var(--d) cubic-bezier(0.1, 0.8, 0.3, 1) 0.05s both; }
+      box-shadow: 0 0 6px 2px rgba(255,150,60,0.9); animation: cp-nuke-debris var(--d) cubic-bezier(0.1, 0.8, 0.3, 1) ${paced(0.05)} both; }
     .cp-nuke-text { left: 0; top: 0; translate: -50% -50%; white-space: nowrap;
       font: 900 calc(var(--s) * 0.11)/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.06em;
       color: #fff3c4; text-shadow: 0 0 calc(var(--s) * 0.03) #ff7a1a, 0 0 calc(var(--s) * 0.06) #ff4d00, 0 2px 2px #000;
-      animation: cp-nuke-text 3.4s ease-out 0.25s both; }
-    .cp-nuke-shake { animation: cp-nuke-shake 0.7s linear 0.05s; }
+      animation: cp-nuke-text ${paced(3.4)} ease-out ${paced(0.25)} both; }
+    .cp-nuke-shake { animation: cp-nuke-shake 0.7s linear 0.05s; }   /* a quick jolt: not paced */
     @keyframes cp-nuke-flash { 0% { transform: scale(0.1); opacity: 1; } 30% { opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
     @keyframes cp-nuke-ring { from { transform: scale(0.1); opacity: 1; } to { transform: scale(3.2); opacity: 0; } }
     @keyframes cp-nuke-dust { from { transform: scale(0.2); opacity: 0; } 20% { opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
@@ -380,7 +383,7 @@
     const debris = Array.from({ length: 14 }, () => {
       const angle = Math.random() * Math.PI * 2, reach = 0.5 + Math.random() * 0.6;
       return part("cp-nuke-debris", `--dx: calc(var(--s) * ${(Math.cos(angle) * reach).toFixed(2)}); ` +
-        `--dy: calc(var(--s) * ${(Math.sin(angle) * reach * 0.6).toFixed(2)}); --d: ${(0.9 + Math.random() * 0.6).toFixed(2)}s`);
+        `--dy: calc(var(--s) * ${(Math.sin(angle) * reach * 0.6).toFixed(2)}); --d: ${paced(0.9 + Math.random() * 0.6)}`);
     }).join("");
     boom.innerHTML = part("cp-nuke-flash") + part("cp-nuke-ring") +
       `<i class="cp-nuke-cloud">${part("cp-nuke-dust")}${part("cp-nuke-stem")}<i class="cp-nuke-cap">${under}${puffs}</i></i>` +
