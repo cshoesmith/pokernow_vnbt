@@ -182,10 +182,9 @@
       15% { opacity: 1; }
       to { transform: translate(var(--dx), calc(-1 * var(--rise))); opacity: 0; }
     }
-    @media (prefers-reduced-motion: reduce) {
-      .cp-flames i { animation: none !important; }
-      .cp-ember { display: none; }
-    }
+    /* No prefers-reduced-motion rules here, on purpose: Windows and Mac players
+       should all see the same flames and blast whatever their system's motion
+       setting. The popup's switch turns the lot off for anyone who'd rather not. */
 
     /* The blast: centred on the sign, over everything for a few seconds, then gone.
        --s is its scale, from the sign's width; parts are placed round the centre. */
@@ -252,12 +251,6 @@
     @keyframes cp-nuke-shake {   /* the translate property, so the table's own transform is left alone */
       0%, 100% { translate: 0 0; } 10% { translate: -6px 3px; } 20% { translate: 5px -4px; } 30% { translate: -5px 2px; }
       40% { translate: 4px 3px; } 55% { translate: -3px -2px; } 70% { translate: 2px 2px; } 85% { translate: -1px -1px; }
-    }
-    @keyframes cp-nuke-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
-    @media (prefers-reduced-motion: reduce) {
-      .cp-nuke > :not(.cp-nuke-text) { display: none; }
-      .cp-nuke-text { animation: cp-nuke-fade 3s ease-out both; }
-      .cp-nuke-shake { animation: none; }
     }`;
 
   const playerName = (seat) => seat.querySelector(".table-player-name a")?.textContent.trim() || "";
