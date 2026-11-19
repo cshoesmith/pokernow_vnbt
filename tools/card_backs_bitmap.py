@@ -80,22 +80,22 @@ def finish(img, grain):
     # Bloom: the brightest parts, blurred wide and added back softly.
     bright = rgb.point(lambda v: max(0, v - 150) * 2)
     rgb = ImageChops.add(rgb, bright.filter(ImageFilter.GaussianBlur(9)), scale=2.2)
-    # Vignette: darken towards the corners.
+    # Vignette: a light darkening towards the corners (heavier swallowed her at table size).
     w, h = rgb.size
     mask = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(mask).ellipse((-w * 0.15, -h * 0.1, w * 1.15, h * 1.1), fill=255)
+    ImageDraw.Draw(mask).ellipse((-w * 0.25, -h * 0.18, w * 1.25, h * 1.18), fill=255)
     mask = mask.filter(ImageFilter.GaussianBlur(w * 0.12))
-    rgb = Image.composite(rgb, ImageChops.multiply(rgb, Image.new("RGB", (w, h), (150, 150, 150))), mask)
+    rgb = Image.composite(rgb, ImageChops.multiply(rgb, Image.new("RGB", (w, h), (205, 205, 205))), mask)
     # Film grain, the same pattern each frame so it reads as texture, not static.
     # The noise is centred on 128: above it lightens a pixel, below darkens it.
     # ImageChops clips at 0, so the two halves are applied separately.
     mid = Image.new("RGB", grain.size, (128, 128, 128))
     rgb = ImageChops.subtract(ImageChops.add(rgb, ImageChops.subtract(grain, mid)), ImageChops.subtract(mid, grain))
     # Only the picture inside the gold frame gets the finish; the cream border
-    # stays clean (the design's inner panel is 7 units in from each edge).
+    # stays clean (the design's inner panel is 5 units in from each edge).
     s = w / 180
     inside = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(inside).rounded_rectangle((7 * s, 7 * s, w - 7 * s, h - 7 * s), radius=8 * s, fill=255)
+    ImageDraw.Draw(inside).rounded_rectangle((5 * s, 5 * s, w - 5 * s, h - 5 * s), radius=8 * s, fill=255)
     rgb = Image.composite(rgb, img.convert("RGB"), inside)
     out = rgb.convert("RGBA")
     out.putalpha(alpha)

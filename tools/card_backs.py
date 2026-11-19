@@ -248,20 +248,28 @@ BACK_VIEW = {   # seen from behind, hands on hips, one heel lifted
     "garters": [(80, 112), (100, 112)],
 }
 
-def card(i, name, pose, dance, glow, glow2, rim, frame, extra_bg="", extra_fg="", flip=None):
+def card(i, name, pose, dance, glow, glow2, rim, frame, extra_bg="", extra_fg="", flip=None, zoom=(1, 90, 110)):
+    # zoom = (scale, x, y): the scene is enlarged round (x, y), so she fills the
+    # card from about the knees up, big enough to read on a small card.
+    zs, zx, zy = zoom
+    zt = f'translate({zx * (1 - zs):.2f} {zy * (1 - zs):.2f}) scale({zs})'
     # The rim light: the figure's outline, blurred in the rim colour, behind it.
     figure_svg = f'<g filter="url(#rim{i})">{figure(pose, dance, rim)}</g>'
     # The light behind her brightens and dims in time with the dance.
     pulse = (f'<rect width="{W}" height="{H}" fill="{glow}" opacity="0">'
              f'<animate attributeName="opacity" values="0;.18;0" dur="{dance["dur"]}s" repeatCount="indefinite"/></rect>')
     if flip:   # a court-card style mirror: the figure twice, head to toe
+        figure_svg = f'<g transform="{zt}">{figure_svg}</g>'
         figure_svg = (f'<g clip-path="url(#top{i})">{figure_svg}</g>'
                       f'<g clip-path="url(#top{i})" transform="rotate(180 {W/2} {H/2})">{figure_svg}</g>')
+    else:
+        figure_svg = f'<g transform="{zt}">{extra_bg}{figure_svg}{extra_fg}</g>'
+        extra_bg = extra_fg = ""
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid slice">
   <title>{name}</title>
   <defs>
-    <radialGradient id="bg{i}" cx="50%" cy="48%" r="62%">
-      <stop offset="0" stop-color="{glow}"/><stop offset=".55" stop-color="{glow2}"/><stop offset="1" stop-color="#050507"/>
+    <radialGradient id="bg{i}" cx="50%" cy="45%" r="75%">
+      <stop offset="0" stop-color="{glow}"/><stop offset=".7" stop-color="{glow2}"/><stop offset="1" stop-color="#140e10"/>
     </radialGradient>
     <linearGradient id="skin" gradientUnits="userSpaceOnUse" x1="55" y1="25" x2="130" y2="205">
       <stop offset="0" stop-color="#2a2430"/><stop offset=".45" stop-color="#121016"/><stop offset="1" stop-color="#050507"/>
@@ -269,25 +277,25 @@ def card(i, name, pose, dance, glow, glow2, rim, frame, extra_bg="", extra_fg=""
     <!-- Backlight: a soft glow round the figure, and a bright edge just inside it
          on the side the light comes from, so the body reads as rounded. -->
     <filter id="rim{i}" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-      <feMorphology in="SourceAlpha" operator="dilate" radius="0.5" result="grow"/>
-      <feGaussianBlur in="grow" stdDeviation="1.6" result="blur"/>
+      <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="grow"/>
+      <feGaussianBlur in="grow" stdDeviation="2" result="blur"/>
       <feFlood flood-color="{rim}" result="col"/>
       <feComposite in="col" in2="blur" operator="in" result="glow"/>
       <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="soft"/>
-      <feOffset in="soft" dx="1.3" dy="0.8" result="shift"/>
+      <feOffset in="soft" dx="1.8" dy="1.1" result="shift"/>
       <feComposite in="SourceAlpha" in2="shift" operator="out" result="edge"/>
       <feComposite in="col" in2="edge" operator="in" result="lit"/>
-      <feComponentTransfer in="lit" result="litsoft"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
-      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/><feMergeNode in="litsoft"/></feMerge>
+      <feComponentTransfer in="lit" result="litsoft"><feFuncA type="linear" slope="1"/></feComponentTransfer>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/><feMergeNode in="litsoft"/></feMerge>
     </filter>
-    <clipPath id="card{i}"><rect x="7" y="7" width="{W-14}" height="{H-14}" rx="8"/></clipPath>
+    <clipPath id="card{i}"><rect x="5" y="5" width="{W-10}" height="{H-10}" rx="8"/></clipPath>
     <clipPath id="top{i}"><rect x="0" y="0" width="{W}" height="{H/2}"/></clipPath>
     <style>.lace {{ stroke-dasharray: 1 1.4; stroke-width: 2.2; }} .seam {{ stroke-width: .5; opacity: .7; }}
       .scallop {{ stroke-dasharray: 0 1.7; stroke-width: 1.3; opacity: .8; }} .sheen {{ stroke-width: 1.1; opacity: .3; }}
       .strand {{ stroke-width: .45; opacity: .4; }}</style>
   </defs>
   <rect width="{W}" height="{H}" rx="12" fill="#f4efe4"/>
-  <rect x="4" y="4" width="{W-8}" height="{H-8}" rx="10" fill="#08080b"/>
+  <rect x="2.5" y="2.5" width="{W-5}" height="{H-5}" rx="10" fill="#08080b"/>
   <g clip-path="url(#card{i})">
     <rect width="{W}" height="{H}" fill="url(#bg{i})"/>
     {pulse}
@@ -295,9 +303,9 @@ def card(i, name, pose, dance, glow, glow2, rim, frame, extra_bg="", extra_fg=""
     {figure_svg}
     {extra_fg}
   </g>
-  <rect x="7" y="7" width="{W-14}" height="{H-14}" rx="8" fill="none" stroke="{frame}" stroke-width="1.6"/>
-  <rect x="11" y="11" width="{W-22}" height="{H-22}" rx="6" fill="none" stroke="{frame}" stroke-width=".6" opacity=".7"/>
-  {''.join(f'<path d="M{x},{y-5} L{x+5},{y} L{x},{y+5} L{x-5},{y} Z" fill="{frame}"/>' for x, y in [(18, 18), (W-18, 18), (18, H-18), (W-18, H-18)])}
+  <rect x="5" y="5" width="{W-10}" height="{H-10}" rx="8" fill="none" stroke="{frame}" stroke-width="1.4"/>
+  <rect x="8.5" y="8.5" width="{W-17}" height="{H-17}" rx="6" fill="none" stroke="{frame}" stroke-width=".5" opacity=".6"/>
+  {''.join(f'<path d="M{x},{y-3.5} L{x+3.5},{y} L{x},{y+3.5} L{x-3.5},{y} Z" fill="{frame}"/>' for x, y in [(14, 14), (W-14, 14), (14, H-14), (W-14, H-14)])}
 </svg>'''
 
 def blinds():
@@ -327,16 +335,16 @@ DANCES = {
 }
 
 cards = [
-    ("Scarlet", STANDING, DANCES["scarlet"], "#ff3b4e", "#7a0d1e", "#ff8a8a", "#d4a64a", spotlight("#ffd0d0"), ""),
-    ("Velvet", SEATED, DANCES["velvet"], "#b05cff", "#3b0f63", "#e3b6ff", "#c9a96e", stool(), ""),
-    ("Blinds", ARMS_UP, DANCES["blinds"], "#ffb347", "#7a3f06", "#ffd59a", "#e0b25a", "", blinds()),
-    ("Jade", BACK_VIEW, DANCES["jade"], "#2ee6b5", "#0b4d4a", "#a6ffe6", "#cdb27a", smoke("#bfffee"), ""),
+    ("Scarlet", STANDING, DANCES["scarlet"], "#ff3b4e", "#7a0d1e", "#ff8a8a", "#d4a64a", spotlight("#ffd0d0"), "", (1.35, 90, 50)),
+    ("Velvet", SEATED, DANCES["velvet"], "#b05cff", "#3b0f63", "#e3b6ff", "#c9a96e", stool(), "", (1.3, 92, 45)),
+    ("Blinds", ARMS_UP, DANCES["blinds"], "#ffb347", "#7a3f06", "#ffd59a", "#e0b25a", "", blinds(), (1.35, 90, 50)),
+    ("Jade", BACK_VIEW, DANCES["jade"], "#2ee6b5", "#0b4d4a", "#a6ffe6", "#cdb27a", smoke("#bfffee"), "", (1.35, 90, 48)),
 ]
 os.makedirs(OUT, exist_ok=True)
-for i, (name, pose, dance, g1, g2, rim, frame, bg, fg) in enumerate(cards, 1):
-    open(f"{OUT}/back-{i}.svg", "w", encoding="utf-8").write(card(i, name, pose, dance, g1, g2, rim, frame, bg, fg))
+for i, (name, pose, dance, g1, g2, rim, frame, bg, fg, zoom) in enumerate(cards, 1):
+    open(f"{OUT}/back-{i}.svg", "w", encoding="utf-8").write(card(i, name, pose, dance, g1, g2, rim, frame, bg, fg, zoom=zoom))
 # Gold: the arms-up figure from the waist up, mirrored head to toe like a court card.
 open(f"{OUT}/back-5.svg", "w", encoding="utf-8").write(
     card(5, "Gold", ARMS_UP, DANCES["gold"], "#ffd36b", "#6b4a0a", "#fff0b8", "#e9c46a",
-         "", f'<path d="M7,{H/2} H{W-7}" stroke="#e9c46a" stroke-width="1.2"/>', flip=True))
+         "", f'<path d="M5,{H/2} H{W-5}" stroke="#e9c46a" stroke-width="1.2"/>', flip=True, zoom=(1.2, 90, 110)))
 print("ok")
