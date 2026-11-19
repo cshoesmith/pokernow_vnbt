@@ -46,7 +46,8 @@ const DEFAULTS = {
   beerTheme: true,
   tableTitle: "vNBT Poker Challenge",
   holidayWorkaround: false,
-  stackChart: true
+  stackChart: true,
+  cardBacks: "standard"   // "standard", "mixed", or "1" to "5"
 };
 
 const style = document.createElement("style");
@@ -80,6 +81,30 @@ function beerCss(title, holidays) {
 }`;
 }
 
+// Card backs: five silhouette pin-up designs (card-backs/back-1..5.svg, drawn by
+// tools/card_backs.py) in place of Poker Now's own. Every face-down card is a
+// .card-container whose .front shows the back image; "sneak" shows it faintly over
+// your own cards. "mixed" gives each seat (.table-player-1 to -10) its own design.
+const CARD_BACK_COUNT = 5;
+const cardBackUrl = (n) => chrome.runtime.getURL(`card-backs/back-${n}.svg`);
+
+function cardBackCss(choice) {
+  const n = Number(choice);
+  const base = choice === "mixed" ? 1 : n >= 1 && n <= CARD_BACK_COUNT ? n : 0;
+  if (!base) return "";   // Poker Now's standard back
+  const rule = (sel, url) => `${sel} { background-image: url("${url}") !important; background-size: cover !important; }`;
+  const css = [
+    rule(".card-container .front", cardBackUrl(base)),
+    rule(".card-container.sneak .card:before", cardBackUrl(base))
+  ];
+  if (choice === "mixed") {
+    for (let seat = 1; seat <= 10; seat++) {
+      css.push(rule(`.table-player-${seat} .card-container .front`, cardBackUrl(((seat - 1) % CARD_BACK_COUNT) + 1)));
+    }
+  }
+  return css.join("\n");
+}
+
 // The stack chart (chart.js) takes the bottom-left corner and has its own
 // Log/Ledger button, so Poker Now's is hidden while the chart is on.
 const LOG_BUTTON = ".aux-chat-bottom-buttons-ctn";
@@ -90,6 +115,7 @@ function apply(settings) {
   const css = [];
   if (selectors.length) css.push(`${selectors.join(",\n")} { display: none !important; }`);
   if (settings.beerTheme) css.push(beerCss(settings.tableTitle, settings.holidayWorkaround));
+  css.push(cardBackCss(settings.cardBacks));
   style.textContent = css.join("\n\n");
 }
 

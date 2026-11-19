@@ -16,6 +16,8 @@
     button:hover { border-color: #6a6a76; }
     #beepStatus { margin: 6px 0 0 22px; font-size: 12px; color: #bbb; }
     #beepStatus:empty { display: none; }
+    label.select { cursor: default; }
+    select { flex: 1; min-width: 0; background: #2c2c33; color: #eee; border: 1px solid #45454f; border-radius: 4px; font: inherit; padding: 2px 4px; }
     #untappdNames { padding: 0 0 0 22px; }
     #untappdNames .hint { margin: 2px 0 4px; font-size: 12px; color: #bbb; }
     .name-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
@@ -37,6 +39,17 @@
   <label><input type="checkbox" id="holidayWorkaround"> Holidays workaround</label>
   <label><input type="checkbox" id="winStreak"> Win streak flames</label>
   <label><input type="checkbox" id="crown"> Chip leader crown</label>
+  <label class="select">Card backs
+    <select id="cardBacks">
+      <option value="standard">Poker Now standard</option>
+      <option value="mixed">Mixed (one per seat)</option>
+      <option value="1">Scarlet</option>
+      <option value="2">Velvet</option>
+      <option value="3">Blinds</option>
+      <option value="4">Jade</option>
+      <option value="5">Gold</option>
+    </select>
+  </label>
   <h2>Panels</h2>
   <label><input type="checkbox" id="stackChart"> Stack chart</label>
   <label><input type="checkbox" id="winOdds"> Win chance</label>

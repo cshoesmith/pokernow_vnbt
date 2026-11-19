@@ -11,6 +11,7 @@ const DEFAULTS = {
   untappd: true,
   winStreak: true,
   crown: true,
+  cardBacks: "standard",
   turnBeeps: true,
   beepVolume: 80
 };
