@@ -14,6 +14,9 @@ const DEFAULTS = {
   beepVolume: 80
 };
 
+// The version from manifest.json, so you can tell which build is loaded.
+document.getElementById("version").textContent = "v" + chrome.runtime.getManifest().version;
+
 chrome.storage.sync.get(DEFAULTS, (settings) => {
   for (const key of Object.keys(DEFAULTS)) {
     const input = document.getElementById(key);

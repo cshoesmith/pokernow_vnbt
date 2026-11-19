@@ -5,6 +5,7 @@
   <style>
     body { font: 14px system-ui, sans-serif; margin: 0; padding: 12px 14px; width: 230px; background: #1f1f24; color: #eee; }
     h1 { font-size: 15px; margin: 0 0 10px; }
+    #version { font-size: 12px; font-weight: normal; color: #999; }
     h2 { font-size: 13px; margin: 14px 0 6px; color: #bbb; font-weight: 600; }
     label { display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; }
     input[type="text"] { width: 100%; box-sizing: border-box; padding: 5px 7px; margin-top: 4px;
@@ -18,7 +19,7 @@
   </style>
 </head>
 <body>
-  <h1>vNBT Poker</h1>
+  <h1>vNBT Poker <span id="version"></span></h1>
   <h2>Hide</h2>
   <label><input type="checkbox" id="promoLink"> Promo link</label>
   <label><input type="checkbox" id="chat"> Chat</label>
