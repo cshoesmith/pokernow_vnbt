@@ -1,7 +1,7 @@
 // Turn timer beeps: Poker Now's warning is easy to miss, so when your turn starts
-// this sounds a loud 2-second tone, then double-beeps at 10 seconds left, then beeps every second from 5, higher and
-// louder for the last 3. Only on your own turn, and it still works with the game
-// tab in the background.
+// this plays a beer can opening, then double-beeps at 10 seconds left, then beeps
+// every second from 5, higher and louder for the last 3. Only on your own turn,
+// and it still works with the game tab in the background.
 //
 // Your seat (.you-player) has .decision-current while it's your turn, and its sign
 // holds the timer, .time-to-talk: two bars, .normal-time then .time-bank, whose
@@ -71,38 +71,46 @@
     return nodes;
   }
 
-  // Your turn has started: 2 seconds of loud 70s-robot computer burble, a rapid
-  // run of random square-wave bleeps with a warble on each, like a sci-fi
-  // mainframe thinking. Cut short if you act before it's done.
-  const ROBOT_NOTES = [392, 523, 587, 659, 784, 880, 1047, 1175, 1319, 1568];
-  const ROBOT_STEP = 0.08;   // seconds per bleep: 25 of them in 2 seconds
+  // Your turn has started: a beer can opening, under a second. A sharp "crack" of
+  // the tab, a little hollow "tok" from the can, then the "pssshh" of the gas
+  // escaping, made from filtered noise that fades out. Cut short if you act first.
+  let noise = null;   // 1 second of white noise, made once and reused
   function turnTone(when) {
-    const osc = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
-    const lfo = ctx.createOscillator(), depth = ctx.createGain();
-    osc.type = "square";
-    filter.type = "lowpass";
-    filter.frequency.value = 3200;
-    lfo.type = "square";             // a fast flutter between two pitches: the robot voice
-    lfo.frequency.value = 28;
-    depth.gain.value = 25;
-    lfo.connect(depth).connect(osc.frequency);
-    gain.gain.setValueAtTime(0, when);
-    let prev = -1;
-    for (let t = 0, i = 0; t < 2 - 0.001; t += ROBOT_STEP, i++) {
-      let n;
-      do n = Math.floor(Math.random() * ROBOT_NOTES.length); while (n === prev);
-      prev = n;
-      const at = when + t;
-      osc.frequency.setValueAtTime(ROBOT_NOTES[n], at);
-      gain.gain.setValueAtTime(volume, at);                       // on for most of the step,
-      gain.gain.setValueAtTime(0, at + ROBOT_STEP * 0.7);         // then a gap so each bleep stands out
+    if (!noise) {
+      noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    osc.connect(filter).connect(gain).connect(ctx.destination);
-    osc.start(when);
-    lfo.start(when);
-    osc.stop(when + 2.01);
-    lfo.stop(when + 2.01);
-    return [osc, lfo];
+    const level = 0.7 * volume;
+    const nodes = [];
+    const hiss = (start, length, from, to, peak, q) => {
+      const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+      src.buffer = noise;
+      filter.type = "bandpass";
+      filter.Q.value = q;
+      filter.frequency.setValueAtTime(from, start);
+      filter.frequency.exponentialRampToValueAtTime(to, start + length);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(peak, start + Math.min(0.004, length / 4));
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
+      src.connect(filter).connect(gain).connect(ctx.destination);
+      src.start(start);
+      src.stop(start + length + 0.01);
+      nodes.push(src);
+    };
+    hiss(when, 0.025, 2500, 1800, level, 1.5);                  // crack
+    const tok = ctx.createOscillator(), tokGain = ctx.createGain();
+    tok.frequency.setValueAtTime(700, when + 0.01);             // tok: a quick pitch drop
+    tok.frequency.exponentialRampToValueAtTime(220, when + 0.06);
+    tokGain.gain.setValueAtTime(0.0001, when + 0.01);
+    tokGain.gain.exponentialRampToValueAtTime(level * 0.5, when + 0.015);
+    tokGain.gain.exponentialRampToValueAtTime(0.0001, when + 0.07);
+    tok.connect(tokGain).connect(ctx.destination);
+    tok.start(when + 0.01);
+    tok.stop(when + 0.08);
+    nodes.push(tok);
+    hiss(when + 0.03, 0.75, 6000, 3500, level * 0.6, 0.8);      // pssshh, falling as the pressure goes
+    return nodes;
   }
 
   function silence(nodes) {
@@ -156,7 +164,7 @@
     const r = width(".normal-time") + width(".time-bank");
     // The bars filled back up: a new turn straight after the last, or more time.
     if (turn && r > turn.samples[turn.samples.length - 1].r + 1) endTurn();
-    // Your seat just lit up: sound the 2-second turn tone (not again if the bars
+    // Your seat just lit up: open a beer (not again if the bars
     // merely refill while you're still deciding).
     let start = null;
     if (!myTurn) {
@@ -220,8 +228,8 @@
     const c = enabled ? audio() : null;
     if (c?.state === "running") {
       turnTone(c.currentTime + 0.05);
-      tone(c.currentTime + 2.4, 10);
-      tone(c.currentTime + 3.05, 3);
+      tone(c.currentTime + 1.2, 10);
+      tone(c.currentTime + 1.85, 3);
     }
     const state = c ? c.state : !enabled ? "off" : navigator.userActivation?.hasBeenActive ? "unavailable" : "suspended";
     reply({ enabled, audio: state, ...stats });
