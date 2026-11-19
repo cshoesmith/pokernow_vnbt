@@ -81,12 +81,14 @@ function beerCss(title, holidays) {
 }`;
 }
 
-// Card backs: five silhouette pin-up dancers (card-backs/back-1..5.svg, drawn and
-// animated by tools/card_backs.py) in place of Poker Now's own. Every face-down card is a
+// Card backs: five silhouette pin-up dancers (card-backs/back-1..5.webp, animated
+// bitmaps drawn by tools/card_backs.py and rendered by tools/card_backs_bitmap.py) in place of Poker Now's own. Every face-down card is a
 // .card-container whose .front shows the back image; "sneak" shows it faintly over
 // your own cards. "mixed" gives each seat (.table-player-1 to -10) its own design.
 const CARD_BACK_COUNT = 5;
-const cardBackUrl = (n) => chrome.runtime.getURL(`card-backs/back-${n}.svg`);
+// The bitmap on top, the vector version under it: if a bitmap is missing or
+// fails to load, its layer is simply empty and the vector one shows.
+const cardBackUrl = (n) => `url("${chrome.runtime.getURL(`card-backs/back-${n}.webp`)}"), url("${chrome.runtime.getURL(`card-backs/back-${n}.svg`)}")`;
 
 function cardBackCss(choice) {
   const n = Number(choice);
@@ -95,7 +97,7 @@ function cardBackCss(choice) {
   // "html body" outranks Poker Now's own rules, including the !important one it
   // adds at the end of <head> (style#cards-back-style) when the game's host has
   // set a custom back: same specificity and later in the page would beat ours.
-  const rule = (sel, url) => `html body ${sel} { background-image: url("${url}") !important; background-size: cover !important; }`;
+  const rule = (sel, url) => `html body ${sel} { background-image: ${url} !important; background-size: cover !important; }`;
   const css = [
     rule(".card-container .front", cardBackUrl(base)),
     rule(".card-container.sneak .card:before", cardBackUrl(base))

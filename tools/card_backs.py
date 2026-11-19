@@ -1,11 +1,12 @@
-# Generates the five card back SVGs in extension/card-backs: backlit silhouettes
+# Generates the five card back SVGs in tools/card-backs: backlit silhouettes
 # of figures in lingerie, stockings and heels, each on its own coloured glow
-# inside a frame, dancing in a loop (SVG animation, so it plays even as a
+# inside a frame, shaded and rim-lit as if lit from behind, dancing in a loop (SVG animation, so it plays even as a
 # card's background image). Run from the repo root after changing a pose or colour:
-#   python tools/card_backs.py
+#   python tools/card_backs.py && python tools/card_backs_bitmap.py
+# (the second turns them into the extension's animated WebP bitmaps).
 import math, os, sys
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "extension", "card-backs")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "card-backs")
 W, H = 180, 220
 
 def catmull(points, closed=True):
@@ -39,6 +40,50 @@ def limb(a, b, wa, wb, bulge=0.15):
     return (f'<path d="{d}"/><circle cx="{a[0]:.1f}" cy="{a[1]:.1f}" r="{wa/2:.1f}"/>'
             f'<circle cx="{b[0]:.1f}" cy="{b[1]:.1f}" r="{wb/2:.1f}"/>')
 
+def shaped(a, b, profile):
+    """A limb from a to b whose width follows profile [(t, width), ...] along it:
+    a thigh that narrows to the knee, a calf that swells then slims to the ankle.
+    Round caps at both ends hide the joint as the parts sway."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = math.hypot(dx, dy) or 1
+    nx, ny = -dy / L, dx / L
+    left = [(a[0] + dx * t + nx * w / 2, a[1] + dy * t + ny * w / 2) for t, w in profile]
+    right = [(a[0] + dx * t - nx * w / 2, a[1] + dy * t - ny * w / 2) for t, w in reversed(profile)]
+    w0, w1 = profile[0][1], profile[-1][1]
+    return (f'<path d="{catmull(left + right)}"/><circle cx="{a[0]:.1f}" cy="{a[1]:.1f}" r="{w0/2:.1f}"/>'
+            f'<circle cx="{b[0]:.1f}" cy="{b[1]:.1f}" r="{w1/2:.1f}"/>')
+
+def ahead(a, b, length):
+    """The point length past b, continuing the line a -> b."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = math.hypot(dx, dy) or 1
+    return (b[0] + dx / L * length, b[1] + dy / L * length)
+
+THIGH = [(0, 16.5), (0.25, 16), (0.6, 13.4), (0.85, 11.2), (1, 10.2)]
+CALF = [(0, 10.2), (0.12, 10.6), (0.3, 11.6), (0.55, 9.0), (0.85, 5.8), (1, 4.8)]
+UPPER_ARM = [(0, 8.2), (0.15, 8.4), (0.5, 6.6), (1, 5.4)]
+FOREARM = [(0, 5.4), (0.3, 5.9), (0.75, 4.3), (1, 3.5)]
+
+def hand(el, wrist):
+    """A slim hand carrying on from the forearm: palm, fingers together, a thumb."""
+    tip = ahead(el, wrist, 7.5)
+    thumb = ahead(el, wrist, 3.5)
+    dx, dy = wrist[0] - el[0], wrist[1] - el[1]
+    L = math.hypot(dx, dy) or 1
+    side = (thumb[0] - dy / L * 2.6, thumb[1] + dx / L * 2.6)
+    return (shaped(wrist, tip, [(0, 3.6), (0.35, 4.3), (0.75, 3.4), (1, 1.4)])
+            + shaped(wrist, side, [(0, 2.2), (1, 1.2)]))
+
+def shoe(an, toe):
+    """A court shoe: the foot arched down to a pointed toe, and a stiletto heel."""
+    foot = shaped(an, toe, [(0, 5.0), (0.45, 4.1), (0.8, 3.0), (1, 1.4)])
+    dx, dy = toe[0] - an[0], toe[1] - an[1]
+    L = math.hypot(dx, dy) or 1
+    back = (an[0] - dx / L * 2.2, an[1] - dy / L * 2.2)          # the back of the heel
+    down = (back[0] - dx / L * 0.6, back[1] + 9)                   # the heel's tip, on the floor
+    return foot + (f'<path d="M{back[0]-1.9:.1f},{back[1]-1:.1f} Q{back[0]-0.2:.1f},{back[1]+4:.1f} {down[0]-0.3:.1f},{down[1]:.1f} '
+                   f'L{down[0]+0.5:.1f},{down[1]:.1f} Q{back[0]+0.9:.1f},{back[1]+3:.1f} {back[0]+2.2:.1f},{back[1]+0.6:.1f} Z"/>')
+
 def lerp(a, b, t):
     return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
 
@@ -50,7 +95,7 @@ def across(a, b, t, w):
     nx, ny = -dy / L * w / 2, dx / L * w / 2
     return (p[0] - nx, p[1] - ny), (p[0] + nx, p[1] + ny)
 
-DARK = "#0a0a0e"
+DARK = "url(#skin)"   # one gradient across the whole figure, lit from the top left
 
 def wave(amp, dur, cx, cy, phase=0.0, steps=12):
     """A looping sway: rotate back and forth by amp degrees round (cx, cy)."""
@@ -63,9 +108,21 @@ def wave(amp, dur, cx, cy, phase=0.0, steps=12):
 def part(shapes, rim, details=""):
     out = f'<g fill="{DARK}">{shapes}</g>'
     if details:
-        out += (f'<g fill="none" stroke="{rim}" stroke-width="0.9" stroke-linecap="round" opacity="0.75">'
+        out += (f'<g fill="none" stroke="{rim}" stroke-width="0.8" stroke-linecap="round" opacity="0.7">'
                 f'{details}</g>')
     return out
+
+def scallops(points):
+    """Lace edging: a row of little beads along a lingerie edge."""
+    return f'<path class="scallop" d="{catmull(points, closed=False)}"/>'
+
+def offset_line(a, b, t0, t1, shift):
+    """A line along the limb a->b from t0 to t1, moved sideways by shift."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = math.hypot(dx, dy) or 1
+    nx, ny = -dy / L * shift, dx / L * shift
+    p, q = lerp(a, b, t0), lerp(a, b, t1)
+    return (p[0] + nx, p[1] + ny), (q[0] + nx, q[1] + ny)
 
 def figure(P, A, rim):
     """The figure as nested parts, each swaying on its joint: the whole body
@@ -78,9 +135,7 @@ def figure(P, A, rim):
     legs = []
     for n, (leg, garter) in enumerate(zip(P["legs"], P.get("garters", [None, None]))):
         hp, kn, an, toe = leg
-        sh = [limb(hp, kn, 16, 9.5, 0.12), limb(kn, an, 9.5, 4.6, 0.22), limb(an, toe, 4.6, 2.2, 0)]
-        back = (an[0] - (toe[0] - an[0]) * 0.25, an[1] - (toe[1] - an[1]) * 0.25)   # stiletto heel
-        sh.append(f'<path d="M{back[0]-1.6:.1f},{back[1]:.1f} L{back[0]:.1f},{back[1]+9:.1f} L{back[0]+1.6:.1f},{back[1]:.1f} Z"/>')
+        sh = [shaped(hp, kn, THIGH), shaped(kn, an, CALF), shoe(an, toe)]
         a, b = across(hp, kn, 0.62, 16.5)
         a2, b2 = across(hp, kn, 0.67, 15.5)
         det = [f'<path d="M{a[0]:.1f},{a[1]:.1f} L{b[0]:.1f},{b[1]:.1f}"/>',
@@ -90,11 +145,15 @@ def figure(P, A, rim):
             det.append(f'<path d="M{garter[0]:.1f},{garter[1]:.1f} L{m[0]:.1f},{m[1]:.1f}"/>')
         k2, a3 = lerp(kn, an, 0.05), lerp(kn, an, 0.95)
         det.append(f'<path class="seam" d="M{k2[0]:.1f},{k2[1]:.1f} L{a3[0]:.1f},{a3[1]:.1f}"/>')
+        # Light catching the stocking down the front of the leg.
+        (s1, s2), (s3, s4) = offset_line(hp, kn, 0.7, 0.98, 2.6), offset_line(kn, an, 0.04, 0.8, 2.2)
+        det.append(f'<path class="sheen" d="M{s1[0]:.1f},{s1[1]:.1f} L{s2[0]:.1f},{s2[1]:.1f} L{s3[0]:.1f},{s3[1]:.1f} L{s4[0]:.1f},{s4[1]:.1f}"/>')
         sway = wave(A["legs"][n], dur, hp[0], hp[1], phase=n * math.pi)
         legs.append(f'<g>{part("".join(sh), rim, "".join(det))}{sway}</g>')
 
     # Torso with the bra and briefs.
     det = "".join(f'<path d="{catmull(l, closed=False)}"/>' for l in P["bra"] + P["briefs"])
+    det += "".join(scallops(l) for l in P["bra"] + P["briefs"] if len(l) > 2)
     torso = part(f'<path d="{catmull(P["torso"])}"/>', rim, det)
 
     # Head, hair and neck, nodding at the base of the neck.
@@ -102,17 +161,27 @@ def figure(P, A, rim):
     head_shapes = (f'<path d="{catmull(P["hair"])}"/>'
                    f'<ellipse cx="{hx}" cy="{hy}" rx="8" ry="10" transform="rotate({P.get("tilt", 0)} {hx} {hy})"/>'
                    + limb(P["neck"][0], P["neck"][1], 7, 8, 0))
+    # Strands follow the hair's outline a little way in, only where the hair
+    # reaches beyond the face, so none cross it.
+    hair = P["hair"]
+    def inward(pt, by):
+        dx, dy = hx - pt[0], hy - pt[1]
+        L = math.hypot(dx, dy) or 1
+        return (pt[0] + dx / L * by, pt[1] + dy / L * by)
+    outside = lambda pt: math.hypot((pt[0] - hx) / 8, (pt[1] - hy) / 10) > 1.15
+    strands = "".join(
+        f'<path class="strand" d="{catmull([inward(a, by), inward(lerp(a, b, 0.5), by), inward(b, by)], closed=False)}"/>'
+        for a, b in zip(hair, hair[1:] + hair[:1]) if outside(a) and outside(b) for by in (1.4, 2.8))
     nx, ny = P["neck"][1]
-    head = f'<g>{part(head_shapes, rim)}{wave(A["head"], dur, nx, ny, phase=math.pi / 2)}</g>'
+    head = f'<g>{part(head_shapes, rim, strands)}{wave(A["head"], dur, nx, ny, phase=math.pi / 2)}</g>'
 
     # Arms: the upper arm swings at the shoulder, carrying the forearm, which bends at the elbow.
     arms = []
     for n, (sh, el, ha) in enumerate(P["arms"]):
         amp_s, amp_e = A["arms"][n]
         ph = n * math.pi
-        hand = f'<circle cx="{ha[0]}" cy="{ha[1]}" r="3.2"/>'
-        fore = f'<g>{part(limb(el, ha, 5.5, 3.8) + hand, rim)}{wave(amp_e, dur, el[0], el[1], phase=ph + 0.8)}</g>'
-        arms.append(f'<g>{part(limb(sh, el, 7.5, 5.5), rim)}{fore}{wave(amp_s, dur, sh[0], sh[1], phase=ph)}</g>')
+        fore = f'<g>{part(shaped(el, ha, FOREARM) + hand(el, ha), rim)}{wave(amp_e, dur, el[0], el[1], phase=ph + 0.8)}</g>'
+        arms.append(f'<g>{part(shaped(sh, el, UPPER_ARM), rim)}{fore}{wave(amp_s, dur, sh[0], sh[1], phase=ph)}</g>')
 
     hips = lerp(P["legs"][0][0], P["legs"][1][0], 0.5)
     upper = f'<g>{torso}{head}{"".join(arms)}{wave(A["hips"], dur, hips[0], hips[1], phase=math.pi)}</g>'
@@ -194,15 +263,28 @@ def card(i, name, pose, dance, glow, glow2, rim, frame, extra_bg="", extra_fg=""
     <radialGradient id="bg{i}" cx="50%" cy="48%" r="62%">
       <stop offset="0" stop-color="{glow}"/><stop offset=".55" stop-color="{glow2}"/><stop offset="1" stop-color="#050507"/>
     </radialGradient>
-    <filter id="rim{i}" x="-30%" y="-30%" width="160%" height="160%">
+    <linearGradient id="skin" gradientUnits="userSpaceOnUse" x1="55" y1="25" x2="130" y2="205">
+      <stop offset="0" stop-color="#2a2430"/><stop offset=".45" stop-color="#121016"/><stop offset="1" stop-color="#050507"/>
+    </linearGradient>
+    <!-- Backlight: a soft glow round the figure, and a bright edge just inside it
+         on the side the light comes from, so the body reads as rounded. -->
+    <filter id="rim{i}" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
       <feMorphology in="SourceAlpha" operator="dilate" radius="0.5" result="grow"/>
       <feGaussianBlur in="grow" stdDeviation="1.6" result="blur"/>
-      <feFlood flood-color="{rim}"/><feComposite in2="blur" operator="in" result="rim"/>
-      <feMerge><feMergeNode in="rim"/><feMergeNode in="SourceGraphic"/></feMerge>
+      <feFlood flood-color="{rim}" result="col"/>
+      <feComposite in="col" in2="blur" operator="in" result="glow"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="soft"/>
+      <feOffset in="soft" dx="1.3" dy="0.8" result="shift"/>
+      <feComposite in="SourceAlpha" in2="shift" operator="out" result="edge"/>
+      <feComposite in="col" in2="edge" operator="in" result="lit"/>
+      <feComponentTransfer in="lit" result="litsoft"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/><feMergeNode in="litsoft"/></feMerge>
     </filter>
     <clipPath id="card{i}"><rect x="7" y="7" width="{W-14}" height="{H-14}" rx="8"/></clipPath>
     <clipPath id="top{i}"><rect x="0" y="0" width="{W}" height="{H/2}"/></clipPath>
-    <style>.lace {{ stroke-dasharray: 1 1.4; stroke-width: 2.2; }} .seam {{ stroke-width: .5; opacity: .7; }}</style>
+    <style>.lace {{ stroke-dasharray: 1 1.4; stroke-width: 2.2; }} .seam {{ stroke-width: .5; opacity: .7; }}
+      .scallop {{ stroke-dasharray: 0 1.7; stroke-width: 1.3; opacity: .8; }} .sheen {{ stroke-width: 1.1; opacity: .3; }}
+      .strand {{ stroke-width: .45; opacity: .4; }}</style>
   </defs>
   <rect width="{W}" height="{H}" rx="12" fill="#f4efe4"/>
   <rect x="4" y="4" width="{W-8}" height="{H-8}" rx="10" fill="#08080b"/>
