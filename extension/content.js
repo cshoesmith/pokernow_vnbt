@@ -47,7 +47,7 @@ const DEFAULTS = {
   tableTitle: "vNBT Poker Challenge",
   holidayWorkaround: false,
   stackChart: true,
-  cardBacks: "mixed"   // "standard", "mixed", or "1" to "5"
+  cardBacks: "dancers"   // "standard", "dancers", "mixed" (silhouettes), or "1" to "5"
 };
 
 const style = document.createElement("style");
@@ -90,14 +90,32 @@ const CARD_BACK_COUNT = 5;
 // fails to load, its layer is simply empty and the vector one shows.
 const cardBackUrl = (n) => `url("${chrome.runtime.getURL(`card-backs/back-${n}.webp`)}"), url("${chrome.runtime.getURL(`card-backs/back-${n}.svg`)}")`;
 
+// Dancers: nine photographic clips of dancers in satin gowns under a spotlight
+// (card-backs/dancers/dancer-1..9.webp, 512x768 animated WebP), one per seat.
+// They're taller than a card, so the crop keeps the top (heads) and trims the
+// hem; a thin cream edge drawn over them makes them read as cards.
+const DANCER_COUNT = 9;
+const dancerUrl = (n) => `url("${chrome.runtime.getURL(`card-backs/dancers/dancer-${n}.webp`)}")`;
+
 function cardBackCss(choice) {
-  const n = Number(choice);
-  const base = choice === "mixed" ? 1 : n >= 1 && n <= CARD_BACK_COUNT ? n : 0;
-  if (!base) return "";   // Poker Now's standard back
   // "html body" outranks Poker Now's own rules, including the !important one it
   // adds at the end of <head> (style#cards-back-style) when the game's host has
   // set a custom back: same specificity and later in the page would beat ours.
-  const rule = (sel, url) => `html body ${sel} { background-image: ${url} !important; background-size: cover !important; }`;
+  const rule = (sel, url, extra = "") => `html body ${sel} { background-image: ${url} !important; background-size: cover !important; ${extra}}`;
+  if (choice === "dancers") {
+    const photo = "background-position: 50% 15% !important; box-shadow: inset 0 0 0 2px #f4efe4, inset 0 0 0 3px rgba(0,0,0,0.5); border-radius: 0.3rem; ";
+    const css = [
+      rule(".card-container .front", dancerUrl(1), photo),
+      rule(".card-container.sneak .card:before", dancerUrl(1), "background-position: 50% 15% !important; ")
+    ];
+    for (let seat = 1; seat <= 10; seat++) {
+      css.push(rule(`.table-player-${seat} .card-container .front`, dancerUrl(((seat - 1) % DANCER_COUNT) + 1), photo));
+    }
+    return css.join("\n");
+  }
+  const n = Number(choice);
+  const base = choice === "mixed" ? 1 : n >= 1 && n <= CARD_BACK_COUNT ? n : 0;
+  if (!base) return "";   // Poker Now's standard back
   const css = [
     rule(".card-container .front", cardBackUrl(base)),
     rule(".card-container.sneak .card:before", cardBackUrl(base))

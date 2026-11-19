@@ -11,7 +11,7 @@ const DEFAULTS = {
   untappd: true,
   winStreak: true,
   crown: true,
-  cardBacks: "mixed",
+  cardBacks: "dancers",
   turnBeeps: true,
   beepVolume: 80
 };

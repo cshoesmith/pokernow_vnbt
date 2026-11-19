@@ -22,9 +22,10 @@ What it does (on pokernow.com game pages):
     every win after that until the streak ends
   - Chip leader crown: a gold crown on the name of whoever has the most
     chips, moving as each pot is awarded (nobody wears it on a tie)
-  - Card backs: five silhouette pin-up dancers, swaying in a loop, on
-    the backs of the cards - a different one per seat. Pick one for the
-    whole table, or Poker Now's own, under "Card backs" in the popup
+  - Card backs: dancers in satin gowns on the backs of the cards, a
+    different one per seat, or five silhouette pin-up dancers instead.
+    Pick the set, one silhouette for the whole table, or Poker Now's own,
+    under "Card backs" in the popup
   - Turn timer beeps: a beer can opening when your turn
     starts, then a double beep at 10 seconds left,
     then a beep every second from 5 (higher for the last 3). Works with
