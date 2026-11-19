@@ -1,5 +1,5 @@
-// Turn timer beeps: Poker Now's warning is easy to miss, so on your turn this
-// double-beeps at 10 seconds left, then beeps every second from 5, higher and
+// Turn timer beeps: Poker Now's warning is easy to miss, so when your turn starts
+// this sounds a loud 2-second tone, then double-beeps at 10 seconds left, then beeps every second from 5, higher and
 // louder for the last 3. Only on your own turn, and it still works with the game
 // tab in the background.
 //
@@ -24,6 +24,7 @@
   let turn = null;       // { samples: [{ t, r }], deadline, beeps: Map(secondsLeft -> { when, nodes }) }
   let lastRate = null;   // %/ms the bars fell at last turn
   let lastSample = 0;
+  let myTurn = false;    // your seat was showing its timer at the last sample
   // For the popup's Test button: how many of your turns were timed since the tab
   // loaded, and how the last one went.
   const stats = { turns: 0, planned: 0, firstLeft: null, blocked: 0 };
@@ -70,6 +71,24 @@
     return nodes;
   }
 
+  // Your turn has started: one long, loud tone, 2 seconds, so you notice even
+  // from across the room. Cut short if you act before it's done.
+  function turnTone(when) {
+    const osc = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = 880;
+    filter.type = "lowpass";
+    filter.frequency.value = 3200;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(volume, when + 0.02);
+    gain.gain.setValueAtTime(volume, when + 1.93);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 2);
+    osc.connect(filter).connect(gain).connect(ctx.destination);
+    osc.start(when);
+    osc.stop(when + 2.01);
+    return [osc];
+  }
+
   function silence(nodes) {
     for (const osc of nodes) try { osc.stop(); osc.disconnect(); } catch { /* already done */ }
   }
@@ -96,6 +115,7 @@
   function endTurn() {
     if (!turn) return;
     for (const { nodes } of turn.beeps.values()) silence(nodes);
+    if (turn.start) silence(turn.start);
     turn = null;
   }
 
@@ -115,13 +135,21 @@
     const now = performance.now();
     lastSample = now;
     const bars = document.querySelector(".table-player.you-player.decision-current .time-to-talk");
-    if (!enabled || !bars || !cpGame.id) { endTurn(); return; }   // cpGame: content.js
+    if (!enabled || !bars || !cpGame.id) { endTurn(); myTurn = false; return; }   // cpGame: content.js
     const width = (sel) => parseFloat(bars.querySelector(sel)?.style.width) || 0;
     const r = width(".normal-time") + width(".time-bank");
     // The bars filled back up: a new turn straight after the last, or more time.
     if (turn && r > turn.samples[turn.samples.length - 1].r + 1) endTurn();
+    // Your seat just lit up: sound the 2-second turn tone (not again if the bars
+    // merely refill while you're still deciding).
+    let start = null;
+    if (!myTurn) {
+      myTurn = true;
+      const c = audio();
+      if (c?.state === "running") start = turnTone(c.currentTime + 0.02);
+    }
     if (!turn) {
-      turn = { samples: [], deadline: null, beeps: new Map(), blocked: false };
+      turn = { samples: [], deadline: null, beeps: new Map(), blocked: false, start };
       stats.turns++;
       stats.planned = 0;
       stats.firstLeft = null;
@@ -175,8 +203,9 @@
     if (msg?.type !== "beeps-test") return;
     const c = enabled ? audio() : null;
     if (c?.state === "running") {
-      tone(c.currentTime + 0.05, 10);
-      tone(c.currentTime + 0.7, 3);
+      turnTone(c.currentTime + 0.05);
+      tone(c.currentTime + 2.4, 10);
+      tone(c.currentTime + 3.05, 3);
     }
     const state = c ? c.state : !enabled ? "off" : navigator.userActivation?.hasBeenActive ? "unavailable" : "suspended";
     reply({ enabled, audio: state, ...stats });

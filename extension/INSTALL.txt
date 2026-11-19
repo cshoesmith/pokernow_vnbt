@@ -19,7 +19,8 @@ What it does (on pokernow.com game pages):
     Any hand they're dealt into and don't win (folding too) puts them out.
     Five in a row sets off a nuclear blast over their name, and so does
     every win after that until the streak ends
-  - Turn timer beeps: on your turn, a double beep at 10 seconds left,
+  - Turn timer beeps: a loud 2-second tone when your turn starts, then
+    a double beep at 10 seconds left,
     then a beep every second from 5 (higher for the last 3). Works with
     the game tab in the background, once you've clicked in the game.
     Set the volume and try it with the slider and Test button in the popup
