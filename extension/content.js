@@ -47,7 +47,7 @@ const DEFAULTS = {
   tableTitle: "vNBT Poker Challenge",
   holidayWorkaround: false,
   stackChart: true,
-  cardBacks: "standard"   // "standard", "mixed", or "1" to "5"
+  cardBacks: "mixed"   // "standard", "mixed", or "1" to "5"
 };
 
 const style = document.createElement("style");
@@ -92,7 +92,10 @@ function cardBackCss(choice) {
   const n = Number(choice);
   const base = choice === "mixed" ? 1 : n >= 1 && n <= CARD_BACK_COUNT ? n : 0;
   if (!base) return "";   // Poker Now's standard back
-  const rule = (sel, url) => `${sel} { background-image: url("${url}") !important; background-size: cover !important; }`;
+  // "html body" outranks Poker Now's own rules, including the !important one it
+  // adds at the end of <head> (style#cards-back-style) when the game's host has
+  // set a custom back: same specificity and later in the page would beat ours.
+  const rule = (sel, url) => `html body ${sel} { background-image: url("${url}") !important; background-size: cover !important; }`;
   const css = [
     rule(".card-container .front", cardBackUrl(base)),
     rule(".card-container.sneak .card:before", cardBackUrl(base))
