@@ -13,12 +13,15 @@ What it does (on pokernow.com game pages):
     the game tab is ever captured
   - Untappd: if your Poker Now name is your Untappd username, a scrolling
     banner above the table title shows your avatar and latest check-in
-    (beer, brewery, rating, ABV and photo)
+    (beer, brewery, rating, ABV and photo). If someone's names differ,
+    pair them up in the popup's name list (only on your own screen)
   - Win streak flames: a player who wins hands in a row gets flames round
     their name - small after one win, bigger after two, biggest from three.
     Any hand they're dealt into and don't win (folding too) puts them out.
     Five in a row sets off a nuclear blast over their name, and so does
     every win after that until the streak ends
+  - Chip leader crown: a gold crown on the name of whoever has the most
+    chips, moving as each pot is awarded (nobody wears it on a tie)
   - Turn timer beeps: a beer can opening when your turn
     starts, then a double beep at 10 seconds left,
     then a beep every second from 5 (higher for the last 3). Works with

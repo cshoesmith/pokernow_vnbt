@@ -10,6 +10,7 @@ const DEFAULTS = {
   winCapture: true,
   untappd: true,
   winStreak: true,
+  crown: true,
   turnBeeps: true,
   beepVolume: 80
 };
@@ -52,3 +53,52 @@ document.getElementById("testBeeps").addEventListener("click", async () => {
     r.audio === "suspended" ? "Chrome is holding the sound back until you click in the game. Click anywhere on the table, then try again." :
     "This tab can't play sound.";
 });
+
+// Untappd name list: pairs of [Poker Now name, Untappd username], saved as
+// untappdNames for untappd.js. Saved a moment after typing stops, so a whole
+// name is one write (Chrome limits how often synced settings can change).
+const nameRows = document.getElementById("nameRows");
+let saveTimer = null;
+
+function saveNames(now = false) {
+  clearTimeout(saveTimer);
+  const save = () => {
+    const pairs = [...nameRows.children]
+      .map((row) => [...row.querySelectorAll("input")].map((i) => i.value.trim()))
+      .filter(([pn, ut]) => pn && ut);
+    chrome.storage.sync.set({ untappdNames: pairs });
+  };
+  if (now === true) save(); else saveTimer = setTimeout(save, 400);
+}
+
+function addRow(pn = "", ut = "") {
+  const row = document.createElement("div");
+  row.className = "name-row";
+  const input = (value, placeholder, title) => {
+    const el = document.createElement("input");
+    el.type = "text";
+    el.value = value;
+    el.placeholder = placeholder;
+    el.title = title;
+    el.spellcheck = false;
+    el.addEventListener("input", () => saveNames());
+    el.addEventListener("change", () => saveNames(true));   // left the box: the popup may be about to close
+    return el;
+  };
+  const arrow = document.createElement("span");
+  arrow.textContent = "→";
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.textContent = "×";
+  remove.title = "Remove";
+  remove.addEventListener("click", () => { row.remove(); saveNames(true); });
+  row.append(input(pn, "Poker Now name", "Their name at the table"), arrow,
+    input(ut, "Untappd user", "Their Untappd username"), remove);
+  nameRows.append(row);
+  return row;
+}
+
+chrome.storage.sync.get({ untappdNames: [] }, ({ untappdNames }) => {
+  for (const [pn, ut] of Array.isArray(untappdNames) ? untappdNames : []) addRow(pn, ut);
+});
+document.getElementById("addName").addEventListener("click", () => addRow().querySelector("input").focus());

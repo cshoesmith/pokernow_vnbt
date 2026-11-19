@@ -1,4 +1,5 @@
-// Untappd: a player whose Poker Now name is also their Untappd username gets a
+// Untappd: a player whose Poker Now name is also their Untappd username (or is
+// paired with one in the popup's name list) gets a
 // card in a banner on the felt, just above the table title - their avatar, latest beer,
 // brewery, rating and ABV, and the check-in photo (or the beer label if there's
 // no photo). background.js fetches the profile pages; results are cached so each
@@ -20,6 +21,7 @@
   let cache = {};
   // beer page path -> "5%" ("" if the page has none); ABV doesn't change, so kept for good
   let abvs = {};
+  let aliases = {};   // lowercased Poker Now name -> Untappd username, from the popup
   let enabled = false, timer = null, busy = false, bannerKey = "";
 
   // ---------- Reading a profile ----------
@@ -179,9 +181,13 @@
     const players = [];
     for (const seat of document.querySelectorAll(".table-player:not(.table-player-seat)")) {
       const name = playerName(seat);
-      const entry = USERNAME_RE.test(name) ? cache[name.toLowerCase()] : null;
+      if (!name) continue;
+      // The popup's name list, else the Poker Now name itself.
+      const user = aliases[name.toLowerCase()] || name;
+      if (!USERNAME_RE.test(user)) continue;
+      const entry = cache[user.toLowerCase()];
       if (entry?.checkin) players.push({ name, checkin: entry.checkin });
-      if (USERNAME_RE.test(name) && !(entry?.next > Date.now())) due ??= name;
+      if (!(entry?.next > Date.now())) due ??= user;
     }
     showBanner(players);
     if (due && !busy) refresh(due);   // one profile at a time
@@ -206,8 +212,19 @@
     }
   }
 
-  chrome.storage.sync.get({ untappd: true }, (s) => setEnabled(s.untappd));
+  // The popup's list of [Poker Now name, Untappd username] pairs, for players
+  // whose names differ; kept here as lowercased Poker Now name -> username.
+  const setAliases = (pairs) => {
+    aliases = {};
+    for (const [pn, ut] of Array.isArray(pairs) ? pairs : []) {
+      if (typeof pn === "string" && typeof ut === "string" && pn.trim() && ut.trim()) aliases[pn.trim().toLowerCase()] = ut.trim();
+    }
+  };
+
+  chrome.storage.sync.get({ untappd: true, untappdNames: [] }, (s) => { setAliases(s.untappdNames); setEnabled(s.untappd); });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "sync" && changes.untappd) setEnabled(changes.untappd.newValue);
+    if (area !== "sync") return;
+    if (changes.untappdNames) setAliases(changes.untappdNames.newValue);
+    if (changes.untappd) setEnabled(changes.untappd.newValue);
   });
 })();
