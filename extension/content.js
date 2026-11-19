@@ -84,14 +84,15 @@ function beerCss(title, holidays) {
 // Card backs: five silhouette pin-up dancers (card-backs/back-1..5.webp, animated
 // bitmaps drawn by tools/card_backs.py and rendered by tools/card_backs_bitmap.py) in place of Poker Now's own. Every face-down card is a
 // .card-container whose .front shows the back image; "sneak" shows it faintly over
-// your own cards. "mixed" gives each seat (.table-player-1 to -10) its own design.
+// your own cards. "mixed" gives each seat (.table-player-1 to -10) its own design
+// (then each card is dealt one at random, below).
 const CARD_BACK_COUNT = 5;
 // The bitmap on top, the vector version under it: if a bitmap is missing or
 // fails to load, its layer is simply empty and the vector one shows.
 const cardBackUrl = (n) => `url("${chrome.runtime.getURL(`card-backs/back-${n}.webp`)}"), url("${chrome.runtime.getURL(`card-backs/back-${n}.svg`)}")`;
 
 // Dancers: nine photographic clips of dancers in satin gowns under a spotlight
-// (card-backs/dancers/dancer-1..9.webp, 512x768 animated WebP), one per seat.
+// (card-backs/dancers/dancer-1..9.webp, 512x768 animated WebP), dealt at random.
 // They're taller than a card, so the crop keeps the top (heads) and trims the
 // hem; a thin cream edge drawn over them makes them read as cards.
 const DANCER_COUNT = 9;
@@ -128,6 +129,50 @@ function cardBackCss(choice) {
   return css.join("\n");
 }
 
+// Random backs: for the "dancers" and "mixed" sets, each face-down card in a
+// seat is dealt its own design, fresh every hand. Designs come off a shuffled
+// pile, so none repeats until the whole set has been used, and a player's two
+// cards never match. The CSS above stays underneath as the fallback until a card
+// is dealt. Poker Now keeps the same card elements from hand to hand, so a new
+// hand is spotted by the winner's highlight going away (the pot was awarded and
+// the next deal has begun), and every card is dealt again.
+const RANDOM_SETS = { dancers: { count: DANCER_COUNT, url: dancerUrl }, mixed: { count: CARD_BACK_COUNT, url: cardBackUrl } };
+let cardBackChoice = null, pile = [], pileSet = null, hadWinner = false;
+
+function drawBack(set, avoid) {
+  if (pileSet !== set || !pile.length) {
+    pileSet = set;
+    pile = Array.from({ length: RANDOM_SETS[set].count }, (_, i) => i + 1);
+    for (let i = pile.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pile[i], pile[j]] = [pile[j], pile[i]]; }
+  }
+  const at = pile.findIndex((n) => !avoid.includes(n));
+  return pile.splice(at < 0 ? 0 : at, 1)[0];
+}
+
+function clearBacks() {
+  for (const front of document.querySelectorAll(".front[data-cp-back]")) {
+    front.style.removeProperty("background-image");
+    delete front.dataset.cpBack;
+  }
+}
+
+function dealBacks() {
+  if (!chrome.runtime?.id) { clearInterval(dealTimer); return; }   // extension reloaded: the refreshed tab takes over
+  const set = RANDOM_SETS[cardBackChoice] && cardBackChoice;
+  if (!set) return;
+  const winner = !!document.querySelector(".table-player.winner");
+  if (hadWinner && !winner) clearBacks();   // a new hand: deal everyone fresh backs
+  hadWinner = winner;
+  for (const front of document.querySelectorAll(".table-player .card-container .front:not([data-cp-back])")) {
+    const pair = front.closest(".table-player-cards");
+    const taken = pair ? [...pair.querySelectorAll(".front[data-cp-back]")].map((f) => Number(f.dataset.cpBack)) : [];
+    const n = drawBack(set, taken);
+    front.dataset.cpBack = n;
+    front.style.setProperty("background-image", RANDOM_SETS[set].url(n), "important");   // inline !important beats the CSS
+  }
+}
+const dealTimer = setInterval(dealBacks, 400);
+
 // The stack chart (chart.js) takes the bottom-left corner and has its own
 // Log/Ledger button, so Poker Now's is hidden while the chart is on.
 const LOG_BUTTON = ".aux-chat-bottom-buttons-ctn";
@@ -140,6 +185,11 @@ function apply(settings) {
   if (settings.beerTheme) css.push(beerCss(settings.tableTitle, settings.holidayWorkaround));
   css.push(cardBackCss(settings.cardBacks));
   style.textContent = css.join("\n\n");
+  if (settings.cardBacks !== cardBackChoice) {   // a different set: take back what was dealt from the old one
+    cardBackChoice = settings.cardBacks;
+    clearBacks();
+    pile = [];
+  }
 }
 
 chrome.storage.sync.get(DEFAULTS, apply);
