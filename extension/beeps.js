@@ -71,22 +71,38 @@
     return nodes;
   }
 
-  // Your turn has started: one long, loud tone, 2 seconds, so you notice even
-  // from across the room. Cut short if you act before it's done.
+  // Your turn has started: 2 seconds of loud 70s-robot computer burble, a rapid
+  // run of random square-wave bleeps with a warble on each, like a sci-fi
+  // mainframe thinking. Cut short if you act before it's done.
+  const ROBOT_NOTES = [392, 523, 587, 659, 784, 880, 1047, 1175, 1319, 1568];
+  const ROBOT_STEP = 0.08;   // seconds per bleep: 25 of them in 2 seconds
   function turnTone(when) {
     const osc = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+    const lfo = ctx.createOscillator(), depth = ctx.createGain();
     osc.type = "square";
-    osc.frequency.value = 880;
     filter.type = "lowpass";
     filter.frequency.value = 3200;
-    gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.exponentialRampToValueAtTime(volume, when + 0.02);
-    gain.gain.setValueAtTime(volume, when + 1.93);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + 2);
+    lfo.type = "square";             // a fast flutter between two pitches: the robot voice
+    lfo.frequency.value = 28;
+    depth.gain.value = 25;
+    lfo.connect(depth).connect(osc.frequency);
+    gain.gain.setValueAtTime(0, when);
+    let prev = -1;
+    for (let t = 0, i = 0; t < 2 - 0.001; t += ROBOT_STEP, i++) {
+      let n;
+      do n = Math.floor(Math.random() * ROBOT_NOTES.length); while (n === prev);
+      prev = n;
+      const at = when + t;
+      osc.frequency.setValueAtTime(ROBOT_NOTES[n], at);
+      gain.gain.setValueAtTime(volume, at);                       // on for most of the step,
+      gain.gain.setValueAtTime(0, at + ROBOT_STEP * 0.7);         // then a gap so each bleep stands out
+    }
     osc.connect(filter).connect(gain).connect(ctx.destination);
     osc.start(when);
+    lfo.start(when);
     osc.stop(when + 2.01);
-    return [osc];
+    lfo.stop(when + 2.01);
+    return [osc, lfo];
   }
 
   function silence(nodes) {
