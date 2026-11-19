@@ -1,6 +1,7 @@
 # Generates the five card back SVGs in extension/card-backs: backlit silhouettes
 # of figures in lingerie, stockings and heels, each on its own coloured glow
-# inside a frame. Run from the repo root after changing a pose or colour:
+# inside a frame, dancing in a loop (SVG animation, so it plays even as a
+# card's background image). Run from the repo root after changing a pose or colour:
 #   python tools/card_backs.py
 import math, os, sys
 
@@ -49,52 +50,74 @@ def across(a, b, t, w):
     nx, ny = -dy / L * w / 2, dx / L * w / 2
     return (p[0] - nx, p[1] - ny), (p[0] + nx, p[1] + ny)
 
-def figure(P):
-    """Silhouette shapes (filled by the caller) and lingerie detail lines."""
-    s = []
-    # Hair behind the head, then head and neck.
-    s.append(f'<path d="{catmull(P["hair"])}"/>')
-    hx, hy = P["head"]
-    s.append(f'<ellipse cx="{hx}" cy="{hy}" rx="8" ry="10" transform="rotate({P.get("tilt",0)} {hx} {hy})"/>')
-    s.append(limb(P["neck"][0], P["neck"][1], 7, 8, 0))
-    s.append(f'<path d="{catmull(P["torso"])}"/>')
-    for arm in P["arms"]:
-        sh, el, ha = arm
-        s.append(limb(sh, el, 7.5, 5.5))
-        s.append(limb(el, ha, 5.5, 3.8))
-        s.append(f'<circle cx="{ha[0]}" cy="{ha[1]}" r="3.2"/>')
-    for leg in P["legs"]:
+DARK = "#0a0a0e"
+
+def wave(amp, dur, cx, cy, phase=0.0, steps=12):
+    """A looping sway: rotate back and forth by amp degrees round (cx, cy)."""
+    if not amp:
+        return ""
+    vals = ";".join(f"{amp * math.sin(2 * math.pi * k / steps + phase):.2f} {cx:.1f} {cy:.1f}" for k in range(steps + 1))
+    return (f'<animateTransform attributeName="transform" type="rotate" values="{vals}" '
+            f'dur="{dur}s" repeatCount="indefinite"/>')
+
+def part(shapes, rim, details=""):
+    out = f'<g fill="{DARK}">{shapes}</g>'
+    if details:
+        out += (f'<g fill="none" stroke="{rim}" stroke-width="0.9" stroke-linecap="round" opacity="0.75">'
+                f'{details}</g>')
+    return out
+
+def figure(P, A, rim):
+    """The figure as nested parts, each swaying on its joint: the whole body
+    round its feet (or seat), the torso the other way at the hips (so the hips
+    swing), the head at the neck, arms at the shoulders and elbows, legs at the
+    hips. A is the dance: amplitudes in degrees and the loop length."""
+    dur = A["dur"]
+
+    # Legs, each with its stocking top, lace, garter and seam.
+    legs = []
+    for n, (leg, garter) in enumerate(zip(P["legs"], P.get("garters", [None, None]))):
         hp, kn, an, toe = leg
-        s.append(limb(hp, kn, 16, 9.5, 0.12))
-        s.append(limb(kn, an, 9.5, 4.6, 0.22))
-        s.append(limb(an, toe, 4.6, 2.2, 0))
-        # Stiletto heel: from the ankle's back, down to the floor line under it.
-        if leg_heel := P.get("heels", True):
-            back = (an[0] - (toe[0] - an[0]) * 0.25, an[1] - (toe[1] - an[1]) * 0.25)
-            floor = (back[0], back[1] + 9 * (1 if toe[1] >= an[1] else -1)) if abs(toe[0]-an[0]) < abs(toe[1]-an[1]) else (back[0], back[1] + 9)
-            s.append(f'<path d="M{back[0]-1.6:.1f},{back[1]:.1f} L{floor[0]:.1f},{floor[1]:.1f} L{back[0]+1.6:.1f},{back[1]:.1f} Z"/>')
-    shapes = "".join(s)
-    d = []
-    # Bra: a line under the bust and two cup curves; straps up to the shoulders.
-    for cup in P["bra"]:
-        d.append(f'<path d="{catmull(cup, closed=False)}"/>')
-    # Briefs: the waistband and leg openings.
-    for line in P["briefs"]:
-        d.append(f'<path d="{catmull(line, closed=False)}"/>')
-    # Stocking tops with a lace band, and garters from the briefs.
-    for leg, garter in zip(P["legs"], P.get("garters", [None, None])):
-        hp, kn, an, toe = leg
+        sh = [limb(hp, kn, 16, 9.5, 0.12), limb(kn, an, 9.5, 4.6, 0.22), limb(an, toe, 4.6, 2.2, 0)]
+        back = (an[0] - (toe[0] - an[0]) * 0.25, an[1] - (toe[1] - an[1]) * 0.25)   # stiletto heel
+        sh.append(f'<path d="M{back[0]-1.6:.1f},{back[1]:.1f} L{back[0]:.1f},{back[1]+9:.1f} L{back[0]+1.6:.1f},{back[1]:.1f} Z"/>')
         a, b = across(hp, kn, 0.62, 16.5)
         a2, b2 = across(hp, kn, 0.67, 15.5)
-        d.append(f'<path d="M{a[0]:.1f},{a[1]:.1f} L{b[0]:.1f},{b[1]:.1f}"/>')
-        d.append(f'<path class="lace" d="M{a2[0]:.1f},{a2[1]:.1f} L{b2[0]:.1f},{b2[1]:.1f}"/>')
+        det = [f'<path d="M{a[0]:.1f},{a[1]:.1f} L{b[0]:.1f},{b[1]:.1f}"/>',
+               f'<path class="lace" d="M{a2[0]:.1f},{a2[1]:.1f} L{b2[0]:.1f},{b2[1]:.1f}"/>']
         if garter:
             m = lerp(a, b, 0.5)
-            d.append(f'<path d="M{garter[0]:.1f},{garter[1]:.1f} L{m[0]:.1f},{m[1]:.1f}"/>')
-        # Stocking seam up the back of the calf.
+            det.append(f'<path d="M{garter[0]:.1f},{garter[1]:.1f} L{m[0]:.1f},{m[1]:.1f}"/>')
         k2, a3 = lerp(kn, an, 0.05), lerp(kn, an, 0.95)
-        d.append(f'<path class="seam" d="M{k2[0]:.1f},{k2[1]:.1f} L{a3[0]:.1f},{a3[1]:.1f}"/>')
-    return shapes, "".join(d)
+        det.append(f'<path class="seam" d="M{k2[0]:.1f},{k2[1]:.1f} L{a3[0]:.1f},{a3[1]:.1f}"/>')
+        sway = wave(A["legs"][n], dur, hp[0], hp[1], phase=n * math.pi)
+        legs.append(f'<g>{part("".join(sh), rim, "".join(det))}{sway}</g>')
+
+    # Torso with the bra and briefs.
+    det = "".join(f'<path d="{catmull(l, closed=False)}"/>' for l in P["bra"] + P["briefs"])
+    torso = part(f'<path d="{catmull(P["torso"])}"/>', rim, det)
+
+    # Head, hair and neck, nodding at the base of the neck.
+    hx, hy = P["head"]
+    head_shapes = (f'<path d="{catmull(P["hair"])}"/>'
+                   f'<ellipse cx="{hx}" cy="{hy}" rx="8" ry="10" transform="rotate({P.get("tilt", 0)} {hx} {hy})"/>'
+                   + limb(P["neck"][0], P["neck"][1], 7, 8, 0))
+    nx, ny = P["neck"][1]
+    head = f'<g>{part(head_shapes, rim)}{wave(A["head"], dur, nx, ny, phase=math.pi / 2)}</g>'
+
+    # Arms: the upper arm swings at the shoulder, carrying the forearm, which bends at the elbow.
+    arms = []
+    for n, (sh, el, ha) in enumerate(P["arms"]):
+        amp_s, amp_e = A["arms"][n]
+        ph = n * math.pi
+        hand = f'<circle cx="{ha[0]}" cy="{ha[1]}" r="3.2"/>'
+        fore = f'<g>{part(limb(el, ha, 5.5, 3.8) + hand, rim)}{wave(amp_e, dur, el[0], el[1], phase=ph + 0.8)}</g>'
+        arms.append(f'<g>{part(limb(sh, el, 7.5, 5.5), rim)}{fore}{wave(amp_s, dur, sh[0], sh[1], phase=ph)}</g>')
+
+    hips = lerp(P["legs"][0][0], P["legs"][1][0], 0.5)
+    upper = f'<g>{torso}{head}{"".join(arms)}{wave(A["hips"], dur, hips[0], hips[1], phase=math.pi)}</g>'
+    px, py = A["pivot"]
+    return f'<g>{"".join(legs)}{upper}{wave(A["sway"], dur, px, py)}</g>'
 
 # ---------- Poses (card units, y down) ----------
 
@@ -156,13 +179,12 @@ BACK_VIEW = {   # seen from behind, hands on hips, one heel lifted
     "garters": [(80, 112), (100, 112)],
 }
 
-def card(i, name, pose, glow, glow2, rim, frame, extra_bg="", extra_fg="", flip=None):
-    shapes, details = figure(pose)
-    fig_t = ""
-    body = f'<g fill="#0a0a0e">{shapes}</g>'
-    glow_body = f'<g fill="{rim}" filter="url(#rim{i})">{shapes}</g>'
-    det = f'<g fill="none" stroke="{rim}" stroke-width="0.9" stroke-linecap="round" opacity="0.75">{details}</g>'
-    figure_svg = glow_body + body + det
+def card(i, name, pose, dance, glow, glow2, rim, frame, extra_bg="", extra_fg="", flip=None):
+    # The rim light: the figure's outline, blurred in the rim colour, behind it.
+    figure_svg = f'<g filter="url(#rim{i})">{figure(pose, dance, rim)}</g>'
+    # The light behind her brightens and dims in time with the dance.
+    pulse = (f'<rect width="{W}" height="{H}" fill="{glow}" opacity="0">'
+             f'<animate attributeName="opacity" values="0;.18;0" dur="{dance["dur"]}s" repeatCount="indefinite"/></rect>')
     if flip:   # a court-card style mirror: the figure twice, head to toe
         figure_svg = (f'<g clip-path="url(#top{i})">{figure_svg}</g>'
                       f'<g clip-path="url(#top{i})" transform="rotate(180 {W/2} {H/2})">{figure_svg}</g>')
@@ -172,7 +194,12 @@ def card(i, name, pose, glow, glow2, rim, frame, extra_bg="", extra_fg="", flip=
     <radialGradient id="bg{i}" cx="50%" cy="48%" r="62%">
       <stop offset="0" stop-color="{glow}"/><stop offset=".55" stop-color="{glow2}"/><stop offset="1" stop-color="#050507"/>
     </radialGradient>
-    <filter id="rim{i}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    <filter id="rim{i}" x="-30%" y="-30%" width="160%" height="160%">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="0.5" result="grow"/>
+      <feGaussianBlur in="grow" stdDeviation="1.6" result="blur"/>
+      <feFlood flood-color="{rim}"/><feComposite in2="blur" operator="in" result="rim"/>
+      <feMerge><feMergeNode in="rim"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
     <clipPath id="card{i}"><rect x="7" y="7" width="{W-14}" height="{H-14}" rx="8"/></clipPath>
     <clipPath id="top{i}"><rect x="0" y="0" width="{W}" height="{H/2}"/></clipPath>
     <style>.lace {{ stroke-dasharray: 1 1.4; stroke-width: 2.2; }} .seam {{ stroke-width: .5; opacity: .7; }}</style>
@@ -181,6 +208,7 @@ def card(i, name, pose, glow, glow2, rim, frame, extra_bg="", extra_fg="", flip=
   <rect x="4" y="4" width="{W-8}" height="{H-8}" rx="10" fill="#08080b"/>
   <g clip-path="url(#card{i})">
     <rect width="{W}" height="{H}" fill="url(#bg{i})"/>
+    {pulse}
     {extra_bg}
     {figure_svg}
     {extra_fg}
@@ -206,17 +234,27 @@ def stool():
 def spotlight(color):
     return f'<path d="M70,-5 L110,-5 L150,{H} L30,{H} Z" fill="{color}" opacity=".10"/>'
 
+# The dances: degrees each part sways, the point the whole body sways round,
+# and the loop length in seconds. Arms are (shoulder, elbow).
+DANCES = {
+    "scarlet": {"dur": 2.4, "pivot": (94, 198), "sway": 4.5, "hips": 7, "head": 8, "legs": [3.5, 3.5], "arms": [(14, 20), (6, 8)]},
+    "velvet":  {"dur": 2.8, "pivot": (90, 120), "sway": 4.5, "hips": 6, "head": 9, "legs": [10, 3], "arms": [(4, 4), (18, 22)]},
+    "blinds":  {"dur": 2.2, "pivot": (90, 198), "sway": 5.5, "hips": 8, "head": 8, "legs": [4, 4], "arms": [(12, 15), (12, 15)]},
+    "jade":    {"dur": 2.6, "pivot": (86, 200), "sway": 4.5, "hips": 9, "head": 10, "legs": [3, 12], "arms": [(7, 9), (7, 9)]},
+    "gold":    {"dur": 3.0, "pivot": (90, 198), "sway": 4.5, "hips": 6, "head": 8, "legs": [3, 3], "arms": [(12, 15), (12, 15)]},
+}
+
 cards = [
-    ("Scarlet", STANDING, "#ff3b4e", "#7a0d1e", "#ff8a8a", "#d4a64a", spotlight("#ffd0d0"), ""),
-    ("Velvet", SEATED, "#b05cff", "#3b0f63", "#e3b6ff", "#c9a96e", stool(), ""),
-    ("Blinds", ARMS_UP, "#ffb347", "#7a3f06", "#ffd59a", "#e0b25a", "", blinds()),
-    ("Jade", BACK_VIEW, "#2ee6b5", "#0b4d4a", "#a6ffe6", "#cdb27a", smoke("#bfffee"), ""),
+    ("Scarlet", STANDING, DANCES["scarlet"], "#ff3b4e", "#7a0d1e", "#ff8a8a", "#d4a64a", spotlight("#ffd0d0"), ""),
+    ("Velvet", SEATED, DANCES["velvet"], "#b05cff", "#3b0f63", "#e3b6ff", "#c9a96e", stool(), ""),
+    ("Blinds", ARMS_UP, DANCES["blinds"], "#ffb347", "#7a3f06", "#ffd59a", "#e0b25a", "", blinds()),
+    ("Jade", BACK_VIEW, DANCES["jade"], "#2ee6b5", "#0b4d4a", "#a6ffe6", "#cdb27a", smoke("#bfffee"), ""),
 ]
 os.makedirs(OUT, exist_ok=True)
-for i, (name, pose, g1, g2, rim, frame, bg, fg) in enumerate(cards, 1):
-    open(f"{OUT}/back-{i}.svg", "w", encoding="utf-8").write(card(i, name, pose, g1, g2, rim, frame, bg, fg))
+for i, (name, pose, dance, g1, g2, rim, frame, bg, fg) in enumerate(cards, 1):
+    open(f"{OUT}/back-{i}.svg", "w", encoding="utf-8").write(card(i, name, pose, dance, g1, g2, rim, frame, bg, fg))
 # Gold: the arms-up figure from the waist up, mirrored head to toe like a court card.
 open(f"{OUT}/back-5.svg", "w", encoding="utf-8").write(
-    card(5, "Gold", ARMS_UP, "#ffd36b", "#6b4a0a", "#fff0b8", "#e9c46a",
+    card(5, "Gold", ARMS_UP, DANCES["gold"], "#ffd36b", "#6b4a0a", "#fff0b8", "#e9c46a",
          "", f'<path d="M7,{H/2} H{W-7}" stroke="#e9c46a" stroke-width="1.2"/>', flip=True))
 print("ok")

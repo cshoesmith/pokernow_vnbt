@@ -81,8 +81,8 @@ function beerCss(title, holidays) {
 }`;
 }
 
-// Card backs: five silhouette pin-up designs (card-backs/back-1..5.svg, drawn by
-// tools/card_backs.py) in place of Poker Now's own. Every face-down card is a
+// Card backs: five silhouette pin-up dancers (card-backs/back-1..5.svg, drawn and
+// animated by tools/card_backs.py) in place of Poker Now's own. Every face-down card is a
 // .card-container whose .front shows the back image; "sneak" shows it faintly over
 // your own cards. "mixed" gives each seat (.table-player-1 to -10) its own design.
 const CARD_BACK_COUNT = 5;
