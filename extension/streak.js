@@ -256,7 +256,10 @@
       40% { translate: 4px 3px; } 55% { translate: -3px -2px; } 70% { translate: 2px 2px; } 85% { translate: -1px -1px; }
     }`;
 
-  const playerName = (seat) => seat.querySelector(".table-player-name a")?.textContent.trim() || "";
+  // Poker Now shows the name in .table-player-name-text (since its 16 Nov 2026
+  // update); before that it was a link, .table-player-name a.
+  const playerName = (seat) =>
+    seat.querySelector(".table-player-name-text, .table-player-name a")?.textContent.trim() || "";
 
   function piece(className, box, vars = {}) {
     const el = document.createElement("i");

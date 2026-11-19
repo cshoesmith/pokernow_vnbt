@@ -114,7 +114,10 @@
   track.className = "cp-banner-track";
   banner.append(track);
 
-  const playerName = (seat) => seat.querySelector(".table-player-name a")?.textContent.trim() || "";
+  // Poker Now shows the name in .table-player-name-text (since its 16 Nov 2026
+  // update); before that it was a link, .table-player-name a.
+  const playerName = (seat) =>
+    seat.querySelector(".table-player-name-text, .table-player-name a")?.textContent.trim() || "";
 
   function span(className, text) {
     const el = document.createElement("span");
