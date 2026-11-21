@@ -18,18 +18,6 @@
     body.popout { background: #000; }
     body.popout video { object-fit: contain; }
     body.popout .shade, body.popout svg.title { display: none; }
-    /* Its mute button: faint in the top corner until the pointer's over it. */
-    #mute { display: none; }
-    body.popout #mute {
-      display: flex; align-items: center; justify-content: center; position: absolute; top: 10px; right: 10px;
-      width: 34px; height: 34px; padding: 0; border: 1px solid rgba(255,255,255,0.3); border-radius: 50%;
-      background: rgba(0,0,0,0.35); color: #fff; opacity: 0.35; cursor: pointer; transition: opacity 0.2s;
-    }
-    body.popout:hover #mute { opacity: 0.7; }
-    body.popout #mute:hover, body.popout #mute:focus-visible { opacity: 1; background: rgba(0,0,0,0.6); }
-    #mute svg { position: static; width: 18px; height: 18px; }
-    #mute .off, #mute.muted .on { display: none; }
-    #mute.muted .off { display: inline; }
   </style>
 </head>
 <body>
@@ -41,13 +29,6 @@
     <text id="title" x="947" y="619" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
       font-size="48" font-weight="600" letter-spacing="4" fill="#fff" fill-opacity="0.75"></text>
   </svg>
-  <button id="mute" type="button" class="muted" title="Unmute" aria-label="Unmute">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>
-      <path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>
-      <path class="off" d="m16 9 6 6m0-6-6 6"/>
-    </svg>
-  </button>
   <script src="lib/hls.light.min.js"></script>
   <script src="stream-player.js"></script>
 </body>

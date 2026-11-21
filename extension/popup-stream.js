@@ -33,11 +33,13 @@
   const OWN_LINK = false;
   listSel.append(new Option("Nothing (the table)", ""));
   if (OWN_LINK) listSel.append(new Option("My own link", "custom"));
+  // Lists with no working channels at all when the extension was made are left out.
+  const deadLists = new Set(typeof IPTV_KNOWN_DEAD === "object" ? IPTV_KNOWN_DEAD.lists ?? [] : []);
   for (const [heading, lists] of IPTV_MENU) {
     const group = document.createElement("optgroup");
     group.label = heading;
-    for (const [id, label] of lists) group.append(new Option(label, id));
-    listSel.append(group);
+    for (const [id, label] of lists) if (!deadLists.has(id)) group.append(new Option(label, id));
+    if (group.children.length) listSel.append(group);
   }
 
   // A playlist's text, from the cache while it's fresh, else from GitHub (or the

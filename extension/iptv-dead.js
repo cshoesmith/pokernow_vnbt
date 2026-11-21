@@ -1,8 +1,10 @@
 // Table video channels found dead (off air, or not shown here), so the popup
-// hides them before you've checked them yourself. Made by tools/iptv_dead.py
-// from a Check channels run; your own checks, and channels you watch, overrule it.
+// hides them before you've checked them yourself, and the menu lists with no
+// working channels at all, which it leaves out. Made by tools/iptv_dead.py from
+// Check channels runs; your own checks, and channels you watch, overrule it.
 const IPTV_KNOWN_DEAD = {
   checked: "2026-11-21",
+  lists: ["HunanTV1", "otherCountry:cu", "otherCountry:mo"],
   urls: [
     "http://1.222.207.80:1935/live/cjbtv/playlist.m3u8",
     "http://1.245.74.5:1935/live/tv/.m3u8",
@@ -35,11 +37,14 @@ const IPTV_KNOWN_DEAD = {
     "http://113.161.6.157:8081/hls-live/livepkgr/liveevent/livestream.m3u8",
     "http://113.163.216.23:1935/live/ngrp:tv2.stream_all/playlist.m3u8",
     "http://113.164.225.140:1935/live/quochoitvlive.stream_720p/playlist.m3u8",
+    "http://113.207.84.196/session/d8b2230e-9333-11ee-a43e-525400dfb345$h1.0$live.cbncdn.cn/pj9p9p/__cl/cg:live/__c/hunanHD/__op/default/__f/5/v4M/index.m3u8",
     "http://117.169.120.138:8080/live/fhzixun/.m3u8",
     "http://118.107.85.4:1935/live/smil:DNTV2.smil/playlist.m3u8",
     "http://118.107.85.5:1935/live/smil:LTV.smil/playlist.m3u8",
     "http://118.107.85.5:1935/live/smil:PTQ.smil/playlist.m3u8",
     "http://119.200.131.11:1935/KBCTV/tv/playlist.m3u8",
+    "http://120.196.232.43:8088/rrs03.hw.gmcc.net/PLTV/651/224/3221226698/1.m3u8",
+    "http://120.196.232.54:8088/rrs03.hw.gmcc.net/PLTV/651/224/3221226674/1.m3u8",
     "http://135.181.79.179/ElmaqarTVHD/playlist.m3u8?token=mobileuser",
     "http://144.217.14.88/hls/hope4life.m3u8",
     "http://144.76.58.245:2307/cartoon/index.m3u8",
@@ -148,6 +153,10 @@ const IPTV_KNOWN_DEAD = {
     "http://212.28.87.173:8000/play/a10y/index.m3u8",
     "http://213.172.73.133:8081/nimble_live/9008_%D0%9F%D1%80%D0%B5%D0%BC%D0%B8%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D0%B5_HD/playlist.m3u8",
     "http://217.173.176.107:1935/live/ngrp:tvk.stream_mobile/chunks.m3u8",
+    "http://222.240.82.92:9901/tsfile/live/1000_1.m3u8",
+    "http://222.240.82.92:9901/tsfile/live/1001_1.m3u8",
+    "http://222.240.82.92:9901/tsfile/live/1002_1.m3u8",
+    "http://222.240.82.92:9901/tsfile/live/1005_1.m3u8",
     "http://23.237.10.66:16106",
     "http://23.237.10.66:16372",
     "http://27.76.137.122:1935/standard/smil:standard.smil/playlist.m3u8",
@@ -346,6 +355,8 @@ const IPTV_KNOWN_DEAD = {
     "http://live.cretetv.gr:1935/cretetv/myStream/playlist.m3u8",
     "http://live.ezotv.pl:1935/live/EZOTV/playlist.m3u8",
     "http://live.greektv.ca/hls1/greektv.m3u8",
+    "http://live.hnxttv.com:9601/live/dspd/800K/tzwj_video.m3u8",
+    "http://live.hnxttv.com:9601/live/xwzh/800K/tzwj_video.m3u8",
     "http://live.langsontv.vn/lstvlive/tv1live.m3u8",
     "http://live.netmaxtv.com:8080/live/live/playlist.m3u8",
     "http://live.sloode.com:1935/labtv_live/labtv/playlist.m3u8",
@@ -566,6 +577,8 @@ const IPTV_KNOWN_DEAD = {
     "http://painelvj.com.br/tvaguaboa2/tvaguaboa2.sdp/playlist.m3u8",
     "http://painelvj.com.br:1935/pdsertaotv/pdsertaotv.sdp/playlist.m3u8",
     "http://painelvj.com.br:1935/tvnbrasil/tvnbrasil.sdp/playlist.m3u8",
+    "http://phoneqq.qing.mgtv.com/nn_live/nn_x64/dWlwPTEwMy43MS43MC4xMDMmcWlkPSZzPWE1YmZhMDBlYjc4Mjc0MDg1NjBkZjdhYTdiODY3MTc2JmVzPTE3MDE3NzEzNjEmdXVpZD01ZDk3ZGIxYjNmN2QxZTY0NjQ1OWIwZjAxZDk0MzNlZS02NzQ3NDY2NyZ2PTImYXM9MCZjZG5leF9pZD1xcV9waG9uZV9saXZl/HNGGMPP360.m3u8",
+    "http://phonetx.qing.mgtv.com/nn_live/nn_x64/cWlkPSZzPTFlYWVjZGFkOWI3NzVlNTJhODhmZmJkMzQyODFjYmQyJmVzPTE3MDE3Njk1MDgmdXVpZD02YWFhN2YzOGMxNDM3ZmFmMWQ1NzQwMWM5ZmMyYjAzOS02NzQ3NDY2NyZ2PTImYXM9MCZjZG5leF9pZD10eF9waG9uZV9saXZl/HNDSMPP360.m3u8",
     "http://radios.primedata.com.br:5080/LiveApp/streams/872258137935361699746456.m3u8?token=undefined",
     "http://rbc.directradios.com:1935/rbc/rbc/live.m3u8",
     "http://reflect-live-concord.cablecast.tv/live/live.m3u8",
@@ -764,7 +777,6 @@ const IPTV_KNOWN_DEAD = {
     "https://5a5c57d042315.streamlock.net/live11704001/ngrp:government_all/playlist.m3u8",
     "https://5aa64ca8b95b8.streamlock.net:4443/edutv/edutelevizija/playlist.m3u8",
     "https://5ad482a77183d.streamlock.net/marliomelohotmail.com/marliomelohotmail.com/playlist.m3u8",
-    "https://5ad482a77183d.streamlock.net/operacaotbomt.com/operacaotbomt.com/playlist.m3u8",
     "https://5ad482a77183d.streamlock.net/sbtsbtmt.com/sbtsbtmt.com/playlist.m3u8",
     "https://5afd52b55ff79.streamlock.net/MISTV/myStream/playlist.m3u8",
     "https://5b01a3d32b65c.streamlock.net:1936/tvalpha/tvalpha/playlist.m3u8",
@@ -1656,6 +1668,7 @@ const IPTV_KNOWN_DEAD = {
     "https://jjn5dkk9bd.zoeweb.tv/z404-live/stream/playlist.m3u8",
     "https://jk3lz82elw79-hls-live.5centscdn.com/harPalGeo/955ad3298db330b5ee880c2c9e6f23a0.sdp/harPalGeo/Live1/index.m3u8",
     "https://jlt2104.cdn.nextologies.com/ebaed9568f2b8e61/ffaaf4b7e1d0e7a8/ea5f88d4e7c252b2/056b5eafae61b1e6/playlist.m3u8",
+    "https://jmp2.uk/SamsungTVPlus/US4000033L.m3u8",
     "https://juicex.nz/hls/mystream.m3u8",
     "https://kan11.media.kan.org.il/hls/live/2024514/2024514/master.m3u8",
     "https://kan23.media.kan.org.il/hls/live/2024691/2024691/master.m3u8",
@@ -2385,7 +2398,6 @@ const IPTV_KNOWN_DEAD = {
     "https://stmv.video.expressolider.com.br/loadingtv/loadingtv/playlist.m3u8",
     "https://stmv1.paineltv.net/tvjapi/tvjapi/playlist.m3u8",
     "https://stmv1.paineltv.net/valeradiowebtv/valeradiowebtv/playlist.m3u8",
-    "https://stmv1.samcast.com.br/giovane7843/giovane7843/playlist.m3u8",
     "https://stmv1.samcast.com.br/gustavo8536/gustavo8536/playlist.m3u8",
     "https://stmv1.srvif.com/animetv/animetv/playlist.m3u8",
     "https://stmv1.srvif.com/classiquetv1/classiquetv1/playlist.m3u8",
@@ -2683,6 +2695,7 @@ const IPTV_KNOWN_DEAD = {
     "https://vse2-eu-all59.secdn.net/barakyah-channel/live/plymouthtv/playlist.m3u8",
     "https://vse2-na-us-ne24.secdn.net/logos-channel/live/christmas/playlist.m3u8",
     "https://vse2-sa-all62.secdn.net/tvstartup6-channel/live/pymestv/playlist.m3u8",
+    "https://watch.collierschools.com/EducationChannel/educhannel.stream/playlist.m3u8",
     "https://watch.haitilive.net/app/2020/telepam/index.fmp4.m3u8",
     "https://web.nandansyst.com/hls/nandan.m3u8",
     "https://webtv.pugliaservice.it:1936/telesud-webtv/telesud-webtv/playlist.m3u8",

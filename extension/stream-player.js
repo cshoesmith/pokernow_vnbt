@@ -148,24 +148,6 @@ class ProxyLoader {
   }
 }
 
-// The video window's mute button. It also sets the Sound setting, so the popup's
-// tick box agrees and the table plays the same way when the window closes.
-const muteButton = document.getElementById("mute");
-function showMute() {
-  muteButton.classList.toggle("muted", video.muted);
-  muteButton.title = video.muted ? "Unmute" : "Mute";
-  muteButton.setAttribute("aria-label", muteButton.title);
-}
-video.addEventListener("volumechange", showMute);
-muteButton.addEventListener("click", () => {
-  wantSound = video.muted;   // set first, so the settings change below doesn't play() again
-  video.muted = !wantSound;
-  if (wantSound && !video.volume) video.volume = 1;   // turned right down in the controls
-  if (wantSound) video.play().catch(() => {});
-  showMute();
-  chrome.storage.sync.set({ tableStreamSound: wantSound });
-});
-
 // Chrome only lets a video start with sound once someone has clicked in the
 // game; until then it plays muted, and stream.js passes on the first click.
 function play() {
