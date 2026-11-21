@@ -4,6 +4,7 @@ const DEFAULTS = {
   videoControls: true,
   beerTheme: true,
   tableTitle: "vNBT Poker Challenge",
+  tableStreamSound: false,   // the stream itself is picked in popup-stream.js
   holidayWorkaround: false,
   stackChart: true,
   winOdds: true,
@@ -11,7 +12,7 @@ const DEFAULTS = {
   untappd: true,
   winStreak: true,
   crown: true,
-  cardBacks: "dancers",
+  cardBacks: "mixed",
   turnBeeps: true,
   beepVolume: 80
 };
@@ -20,6 +21,7 @@ const DEFAULTS = {
 document.getElementById("version").textContent = "v" + chrome.runtime.getManifest().version;
 
 chrome.storage.sync.get(DEFAULTS, (settings) => {
+  if (settings.cardBacks === "dancers") settings.cardBacks = "mixed";   // a set that's gone (see content.js)
   for (const key of Object.keys(DEFAULTS)) {
     const input = document.getElementById(key);
     if (input.type === "checkbox") {

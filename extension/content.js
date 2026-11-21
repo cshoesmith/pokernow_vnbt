@@ -47,7 +47,7 @@ const DEFAULTS = {
   tableTitle: "vNBT Poker Challenge",
   holidayWorkaround: false,
   stackChart: true,
-  cardBacks: "dancers"   // "standard", "dancers", "mixed" (silhouettes), or "1" to "5"
+  cardBacks: "mixed"   // "standard", "mixed" (a silhouette per card, at random), or "1" to "5"
 };
 
 const style = document.createElement("style");
@@ -87,33 +87,18 @@ function beerCss(title, holidays) {
 // your own cards. "mixed" gives each seat (.table-player-1 to -10) its own design
 // (then each card is dealt one at random, below).
 const CARD_BACK_COUNT = 5;
+// The photographic "dancers" set was dropped (too heavy for what it added):
+// anyone who'd chosen it gets the silhouettes dealt at random instead.
+const cardBackSetting = (choice) => choice === "dancers" ? "mixed" : choice;
 // The bitmap on top, the vector version under it: if a bitmap is missing or
 // fails to load, its layer is simply empty and the vector one shows.
 const cardBackUrl = (n) => `url("${chrome.runtime.getURL(`card-backs/back-${n}.webp`)}"), url("${chrome.runtime.getURL(`card-backs/back-${n}.svg`)}")`;
-
-// Dancers: nine photographic clips of dancers in satin gowns under a spotlight
-// (card-backs/dancers/dancer-1..9.webp, 512x768 animated WebP), dealt at random.
-// They're taller than a card, so the crop keeps the top (heads) and trims the
-// hem; a thin cream edge drawn over them makes them read as cards.
-const DANCER_COUNT = 9;
-const dancerUrl = (n) => `url("${chrome.runtime.getURL(`card-backs/dancers/dancer-${n}.webp`)}")`;
 
 function cardBackCss(choice) {
   // "html body" outranks Poker Now's own rules, including the !important one it
   // adds at the end of <head> (style#cards-back-style) when the game's host has
   // set a custom back: same specificity and later in the page would beat ours.
-  const rule = (sel, url, extra = "") => `html body ${sel} { background-image: ${url} !important; background-size: cover !important; ${extra}}`;
-  if (choice === "dancers") {
-    const photo = "background-position: 50% 15% !important; box-shadow: inset 0 0 0 2px #f4efe4, inset 0 0 0 3px rgba(0,0,0,0.5); border-radius: 0.3rem; ";
-    const css = [
-      rule(".card-container .front", dancerUrl(1), photo),
-      rule(".card-container.sneak .card:before", dancerUrl(1), "background-position: 50% 15% !important; ")
-    ];
-    for (let seat = 1; seat <= 10; seat++) {
-      css.push(rule(`.table-player-${seat} .card-container .front`, dancerUrl(((seat - 1) % DANCER_COUNT) + 1), photo));
-    }
-    return css.join("\n");
-  }
+  const rule = (sel, url) => `html body ${sel} { background-image: ${url} !important; background-size: cover !important; }`;
   const n = Number(choice);
   const base = choice === "mixed" ? 1 : n >= 1 && n <= CARD_BACK_COUNT ? n : 0;
   if (!base) return "";   // Poker Now's standard back
@@ -129,14 +114,14 @@ function cardBackCss(choice) {
   return css.join("\n");
 }
 
-// Random backs: for the "dancers" and "mixed" sets, each face-down card in a
+// Random backs: for the "mixed" set, each face-down card in a
 // seat is dealt its own design, fresh every hand. Designs come off a shuffled
 // pile, so none repeats until the whole set has been used, and a player's two
 // cards never match. The CSS above stays underneath as the fallback until a card
 // is dealt. Poker Now keeps the same card elements from hand to hand, so a new
 // hand is spotted by the winner's highlight going away (the pot was awarded and
 // the next deal has begun), and every card is dealt again.
-const RANDOM_SETS = { dancers: { count: DANCER_COUNT, url: dancerUrl }, mixed: { count: CARD_BACK_COUNT, url: cardBackUrl } };
+const RANDOM_SETS = { mixed: { count: CARD_BACK_COUNT, url: cardBackUrl } };
 let cardBackChoice = null, pile = [], pileSet = null, hadWinner = false;
 
 function drawBack(set, avoid) {
@@ -183,10 +168,11 @@ function apply(settings) {
   const css = [];
   if (selectors.length) css.push(`${selectors.join(",\n")} { display: none !important; }`);
   if (settings.beerTheme) css.push(beerCss(settings.tableTitle, settings.holidayWorkaround));
-  css.push(cardBackCss(settings.cardBacks));
+  const backs = cardBackSetting(settings.cardBacks);
+  css.push(cardBackCss(backs));
   style.textContent = css.join("\n\n");
-  if (settings.cardBacks !== cardBackChoice) {   // a different set: take back what was dealt from the old one
-    cardBackChoice = settings.cardBacks;
+  if (backs !== cardBackChoice) {   // a different set: take back what was dealt from the old one
+    cardBackChoice = backs;
     clearBacks();
     pile = [];
   }

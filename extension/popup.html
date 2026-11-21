@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { font: 14px system-ui, sans-serif; margin: 0; padding: 12px 14px; width: 230px; background: #1f1f24; color: #eee; }
+    body { font: 14px system-ui, sans-serif; margin: 0; padding: 12px 14px; width: 250px; background: #1f1f24; color: #eee; }
     h1 { font-size: 15px; margin: 0 0 10px; }
     #version { font-size: 12px; font-weight: normal; color: #999; }
     h2 { font-size: 13px; margin: 14px 0 6px; color: #bbb; font-weight: 600; }
@@ -25,6 +25,18 @@
     .name-row span { color: #888; font-size: 12px; }
     .name-row button { padding: 1px 6px; line-height: 1.2; }
     #addName { font-size: 12px; padding: 2px 8px; }
+    [hidden] { display: none !important; }
+    .check-row { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+    .check-row button { font-size: 12px; padding: 2px 8px; white-space: nowrap; }
+    .check-row button:disabled { opacity: 0.5; cursor: default; }
+    #checkInfo { font-size: 11px; color: #bbb; }
+    label.small { font-size: 12px; padding: 3px 0 0; }
+    .channel-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+    .channel-row select { padding: 2px; }
+    .channel-row button { padding: 1px 5px; font-size: 11px; }
+    #streamStatus { margin: 4px 0 0; font-size: 12px; color: #bbb; }
+    #streamStatus:empty { display: none; }
+    #streamStatus.bad { color: #f0a868; }
   </style>
 </head>
 <body>
@@ -42,8 +54,7 @@
   <label class="select">Card backs
     <select id="cardBacks">
       <option value="standard">Poker Now standard</option>
-      <option value="dancers">Dancers (one per seat)</option>
-      <option value="mixed">Silhouettes (one per seat)</option>
+      <option value="mixed">Silhouettes (dealt at random)</option>
       <option value="1">Scarlet</option>
       <option value="2">Velvet</option>
       <option value="3">Blinds</option>
@@ -51,6 +62,26 @@
       <option value="5">Gold</option>
     </select>
   </label>
+  <h2>Table video</h2>
+  <label class="select">Show
+    <select id="streamList"></select>
+  </label>
+  <div id="channelPicker" hidden>
+    <input type="text" id="channelFilter" placeholder="Search channels" spellcheck="false">
+    <div class="channel-row">
+      <button type="button" id="prevChannel" title="Previous channel">&#9664;</button>
+      <select id="channel" title="Channel"></select>
+      <button type="button" id="nextChannel" title="Next channel">&#9654;</button>
+    </div>
+    <div class="check-row">
+      <button type="button" id="checkChannels" title="Test every channel in this list and hide the ones that don't work">Check channels</button>
+      <span id="checkInfo"></span>
+    </div>
+    <label class="small" hidden><input type="checkbox" id="showDead"> <span>Show dead channels (<span id="deadCount">0</span>)</span></label>
+  </div>
+  <input type="text" id="tableStream" hidden placeholder="Link to an .m3u8 stream or video file" spellcheck="false">
+  <p id="streamStatus"></p>
+  <label><input type="checkbox" id="tableStreamSound"> Sound</label>
   <h2>Panels</h2>
   <label><input type="checkbox" id="stackChart"> Stack chart</label>
   <label><input type="checkbox" id="winOdds"> Win chance</label>
@@ -69,5 +100,8 @@
   </div>
   <p id="beepStatus"></p>
   <script src="popup.js"></script>
+  <script src="iptv.js"></script>
+  <script src="iptv-dead.js"></script>
+  <script src="popup-stream.js"></script>
 </body>
 </html>

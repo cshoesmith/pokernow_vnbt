@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>vNBT Poker TV</title>
+  <!-- The table video, shown in a frame over the felt by stream.js. Running it
+       here, as an extension page, lets it load streams from any site: Poker Now's
+       own page would block them, and so would most streams' servers. -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    video, svg.title, .shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+    video { object-fit: cover; }
+    /* Darker towards the rail, so the video sinks into the table and cards stay clear on it. */
+    .shade { background: radial-gradient(ellipse at center, rgba(0,0,0,0.12) 55%, rgba(0,0,0,0.6) 100%); }
+    /* Nothing shows until the video is playing: until then the table's own felt does. */
+    body:not(.playing) > * { visibility: hidden; }
+    /* Its own window: the whole picture on black, no felt shading or title. */
+    body.popout { background: #000; }
+    body.popout video { object-fit: contain; }
+    body.popout .shade, body.popout svg.title { display: none; }
+    /* Its mute button: faint in the top corner until the pointer's over it. */
+    #mute { display: none; }
+    body.popout #mute {
+      display: flex; align-items: center; justify-content: center; position: absolute; top: 10px; right: 10px;
+      width: 34px; height: 34px; padding: 0; border: 1px solid rgba(255,255,255,0.3); border-radius: 50%;
+      background: rgba(0,0,0,0.35); color: #fff; opacity: 0.35; cursor: pointer; transition: opacity 0.2s;
+    }
+    body.popout:hover #mute { opacity: 0.7; }
+    body.popout #mute:hover, body.popout #mute:focus-visible { opacity: 1; background: rgba(0,0,0,0.6); }
+    #mute svg { position: static; width: 18px; height: 18px; }
+    #mute .off, #mute.muted .on { display: none; }
+    #mute.muted .off { display: inline; }
+  </style>
+</head>
+<body>
+  <video id="video" playsinline loop muted></video>
+  <div class="shade"></div>
+  <!-- The table title, which the video covers, drawn again on top of it: the frame
+       is the felt ellipse of the 1889x892 table image, at 351,138 and 1192x591. -->
+  <svg class="title" viewBox="351 138 1192 591" preserveAspectRatio="xMidYMid slice">
+    <text id="title" x="947" y="619" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+      font-size="48" font-weight="600" letter-spacing="4" fill="#fff" fill-opacity="0.75"></text>
+  </svg>
+  <button id="mute" type="button" class="muted" title="Unmute" aria-label="Unmute">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>
+      <path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>
+      <path class="off" d="m16 9 6 6m0-6-6 6"/>
+    </svg>
+  </button>
+  <script src="lib/hls.light.min.js"></script>
+  <script src="stream-player.js"></script>
+</body>
+</html>
