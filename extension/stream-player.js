@@ -1,5 +1,5 @@
 // Plays the table video set in the popup (tableStream) inside stream.html: an
-// HLS stream (.m3u8) through hls.js (lib/hls.light.min.js), or a plain video
+// HLS stream (.m3u8) through hls.js (lib/hls.min.js), or a plain video
 // file (.mp4, .webm...) straight in the <video>. A live stream that drops is
 // retried every few seconds; until it plays, the frame shows nothing. How it's
 // going is put in local storage (tableStreamStatus) for the popup to show, and
@@ -73,7 +73,8 @@ function start(u, retrying = false) {
   if (!retrying) report("loading");
   if (!FILE_RE.test(u) && window.Hls?.isSupported()) {
     // Extension pages can't start workers from blob: URLs, hence no worker.
-    hls = new Hls({ enableWorker: false, loader: ProxyLoader });
+    hls = new Hls({ enableWorker: false, loader: ProxyLoader,
+      subtitleDisplay: false });   // a channel's subtitles are there to turn on (the player's CC button), not shown
     hls.on(Hls.Events.ERROR, (_, data) => {
       if (!data.fatal) return;
       if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();

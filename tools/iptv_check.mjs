@@ -1,7 +1,7 @@
 // Tests every table video channel the popup can offer, from this computer, and
 // writes what it finds for the extension:
 //   extension/iptv-dead.js       the channels that don't work (hidden in the menus),
-//                                and the China/News lists with nothing working
+//                                and the News lists with nothing working
 //   extension/iptv-countries.js  the countries with at least one working channel
 //                                (the Countries part of the menu)
 // It loads the extension's own code to do it: the lists and their sources from
@@ -116,6 +116,6 @@ fs.writeFileSync(path.join(EXT, "iptv-dead.js"),
 
 const total = urls.length, ok = total - dead.size;
 console.log(`\n${ok} of ${total} channels work; ${Object.keys(countries).length} countries have some.`);
-console.log("China and News lists with nothing working:", deadLists.join(", ") || "none");
+console.log("News lists with nothing working:", deadLists.join(", ") || "none");
 console.log("Most working channels:", Object.keys(countries).map((c) => [countries[c], working("country:" + c)])
   .sort((a, b) => b[1] - a[1]).slice(0, 15).map(([name, k]) => `${name} ${k}`).join(", "));

@@ -1,5 +1,5 @@
-// The popup's Table video menu: pick a TV channel from one of the ChinaIPTV
-// playlists (iptv.js), or paste your own link. Saves tableStream (the link the
+// The popup's Table video menu: pick a TV channel from one of the channel
+// lists (iptv.js), or paste your own link. Saves tableStream (the link the
 // game tab plays) and tableStreamList (which list it's from) to sync storage.
 // The game tab's player reports how it's going in local storage
 // (tableStreamStatus), shown under the menu.

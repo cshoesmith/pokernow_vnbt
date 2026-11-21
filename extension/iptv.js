@@ -8,28 +8,70 @@
 //  - iptv-org (github.com/iptv-org/iptv, public domain): the big community index,
 //    a playlist per country (countries/<code>.m3u) and one of international ones.
 //  - Free-TV (github.com/Free-TV/IPTV): free-to-air channels, tagged by country.
-// A country in the menu is all three put together, without repeats.
+// A country in the menu is all three put together, without repeats, plus any
+// channels added by hand (IPTV_EXTRA); China also has ChinaIPTV's China lists.
 
 const IPTV_REPO = "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/";
 const IPTV_ORG = "https://iptv-org.github.io/iptv/";
 const IPTV_FREETV = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8";
 
+// Channels added by hand to a country's list: the broadcasters' and distributors'
+// own free streams that the playlists above don't file under that country (most
+// are free, ad-supported channels made for smart TVs and apps such as Rakuten TV,
+// FASTV and Samsung TV Plus). Each was tested when added; dead ones are hidden like
+// any other. [name, link, group]: a group the list already has gets the channel at
+// its end; a new group goes at the top of the list, in the order given here.
+const IPTV_EXTRA = {
+  kr: [
+    ["K-Content by CJ ENM", "https://d2q0mzb9bm4w5z.cloudfront.net/68fee8e1_605a_437b_b968_244c3c0d5f24/hls/playlist.m3u8", "K-drama, films & K-pop"],
+    ["NEW K.Movies", "https://ads.its-newid.net/api/manifest.m3u8?ads.service_id=GB1700007PK&channel_id=newid_343&tp=samsung_tvplus", "K-drama, films & K-pop"],
+    ["Rakuten Viki", "https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8", "K-drama, films & K-pop"],
+    ["AsianCrush", "https://linear-900.frequency.stream/dist/cineverse/900/hls/master/playlist.m3u8", "K-drama, films & K-pop"],
+    ["NEW K-Pop", "https://ads.its-newid.net/api/manifest.m3u8?ads.service_id=GB17000088V&channel_id=newid_086&tp=samsung_tvplus", "K-drama, films & K-pop"],
+    ["Stingray Today's K-Pop", "https://lotus.stingray.com/manifest/ose-317ads-montreal/samsungtvplus/master.m3u8", "K-drama, films & K-pop"],
+    ["Kpop Mix", "https://cloud.tvomix.com/KPOPMIX/index.m3u8", "K-drama, films & K-pop"],
+    ["CBS TV", "https://cbs-live.cbs.co.kr/cbs-live/_definst_/cbs-live.stream/playlist.m3u8", "Religious"],
+    ["LLBN TV Korean", "https://brightstar-korean-pull-secure.akamaized.net/brightstarkorean/stream.m3u8", "Religious"]
+  ],
+  jp: [
+    ["MoviDora TV (films & drama)", "https://cdn-apne1.tsv2.amagi.tv/linear/amg01287-rakutentvjapan-moviecmaf-rakutenjp/playlist.m3u8", "Films & drama"],
+    ["Jidaigeki TV (samurai drama)", "https://livetv.fastv.jp/channel_assembly/696074B664B80F46A876/master.m3u8", "Films & drama"],
+    ["Hanryu Channel (Korean drama)", "https://livetv.fastv.jp/channel_assembly/6960905473F5101B6A17/master.m3u8", "Films & drama"],
+    ["Entame Asia (Asian drama)", "https://livetv.fastv.jp/channel_assembly/696078CF64B81069221E/master.m3u8", "Films & drama"],
+    ["Animax Free", "https://livetv.fastv.jp/channel_assembly/69608FB2725E0FA3B972/master.m3u8", "Anime"],
+    ["Tezuka Productions TV", "https://cdn-apne1.tsv2.amagi.tv/linear/amg01287-rakutentvjapan-anime5-cmaf-rakutenjp/playlist.m3u8", "Anime"],
+    ["RetroCrush (classic anime, English)", "https://linear-899.frequency.stream/dist/cineverse/899/hls/master/playlist.m3u8", "Anime"],
+    ["Yu-Gi-Oh! (English)", "https://amg01796-amg01796c19-rakuten-gb-7486.playouts.now.amagi.tv/playlist/amg01796-fastmediafast-yugioh2en-rakutengb/playlist.m3u8", "Anime"],
+    ["Lemino TV", "https://livetv.fastv.jp/channel_assembly/696082290000105F1525/master.m3u8", "Entertainment & lifestyle"],
+    ["Entertainment News", "https://livetv.fastv.jp/channel_assembly/6960899D64B80F9C740C/master.m3u8", "Entertainment & lifestyle"],
+    ["Fashion Plus", "https://livetv.fastv.jp/channel_assembly/69609952725E0FA3B987/master.m3u8", "Entertainment & lifestyle"],
+    ["Pia Rakugo (comic storytelling)", "https://livetv.fastv.jp/channel_assembly/69608EE9725E0F73BF30/master.m3u8", "Entertainment & lifestyle"],
+    ["What's for Dinner? (cooking)", "https://livetv.fastv.jp/channel_assembly/696095BC725E0FE5F3E9/master.m3u8", "Entertainment & lifestyle"],
+    ["Mirutabi (travel)", "https://livetv.fastv.jp/channel_assembly/6960965C64B80F2C027D/master.m3u8", "Entertainment & lifestyle"],
+    ["All about Hokkaido", "https://livetv.fastv.jp/channel_assembly/69998D0964B83951E552/master.m3u8", "Entertainment & lifestyle"],
+    ["All about Kyushu", "https://livetv.fastv.jp/channel_assembly/696090F573F51039B31F/master.m3u8", "Entertainment & lifestyle"],
+    ["Tokai Rokipo", "https://livetv.fastv.jp/channel_assembly/69998DB5725E30535DA6/master.m3u8", "Entertainment & lifestyle"],
+    ["Camping & Outdoors", "https://livetv.fastv.jp/channel_assembly/69607E1D725E0FB5AC23/master.m3u8", "Entertainment & lifestyle"],
+    ["Pet TV", "https://livetv.fastv.jp/channel_assembly/69551F080000E209AD09/master.m3u8", "Entertainment & lifestyle"],
+    ["Wan Nyan (cats & dogs)", "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01287-rakutentvjapan-pet-cmaf-rakutenjp/playlist.m3u8", "Entertainment & lifestyle"],
+    ["Go & Shogi", "https://livetv.fastv.jp/channel_assembly/69998C7B725E30DA4170/master.m3u8", "Entertainment & lifestyle"],
+    ["Golf Life", "https://livetv.fastv.jp/channel_assembly/69607D5C725E103DDF9D/master.m3u8", "Entertainment & lifestyle"],
+    ["Business Premium", "https://livetv.fastv.jp/channel_assembly/69607EBD725E0F65BEE4/master.m3u8", "Entertainment & lifestyle"],
+    ["NHK World Premium", "https://media-tyo.hls.nhkworld.jp/hls/wp/live/master.m3u8", "General"]
+  ]
+};
+
 // The popup's menu of channel lists, in groups. A list is a ChinaIPTV playlist
 // ("file"), iptv-org's international channels ("iptvorg:int"), or a country
 // ("country:<code>"). The countries are those with channels that worked when the
 // extension was made (IPTV_COUNTRIES, iptv-countries.js, from tools/iptv_check.mjs).
-// Left out of ChinaIPTV: its adult list, one marked as not working, a list of
-// other lists, and its separate country lists (otherCountry has all of theirs).
+// ChinaIPTV's China lists are in China (IPTV_CHINA, below). Left out of ChinaIPTV:
+// its adult list, one marked as not working, a list of other lists, and its
+// separate country lists (otherCountry has all of theirs).
+// ChinaIPTV's playlists of China's own channels (CCTV, the provinces' satellite
+// channels, Hong Kong, Macao and Taiwan...), all part of China in the menu.
+const IPTV_CHINA = ["cnTV_AutoUpdate", "cnTV2_GuoNei", "cnTV1_ALL", "cnTV1_GuoJi", "HunanTV_AutoUpdate", "HunanTV1", "HunanTV2"];
 const IPTV_MENU = [
-  ["China", [
-    ["cnTV_AutoUpdate", "China (kept up to date)"],
-    ["cnTV2_GuoNei", "China: national channels"],
-    ["cnTV1_ALL", "China: all provinces"],
-    ["cnTV1_GuoJi", "China: international"],
-    ["HunanTV_AutoUpdate", "Hunan TV (kept up to date)"],
-    ["HunanTV1", "Hunan TV 1"],
-    ["HunanTV2", "Hunan TV 2"]
-  ]],
   ["News", [["Global", "World news"], ["iptvorg:int", "International channels"]]],
   ["Countries", Object.entries(typeof IPTV_COUNTRIES === "object" ? IPTV_COUNTRIES : {})
     .sort((a, b) => a[1].localeCompare(b[1]))
@@ -38,7 +80,8 @@ const IPTV_MENU = [
 // Lists in earlier versions of the menu, for a choice saved then.
 const IPTV_RENAMED = {
   HongKong: "country:hk", Macao: "country:mo", TaiWan: "country:tw", Singapore: "country:sg",
-  Japan: "country:jp", southKorea: "country:kr", Russia: "country:ru", UK: "country:uk", USA: "country:us"
+  Japan: "country:jp", southKorea: "country:kr", Russia: "country:ru", UK: "country:uk", USA: "country:us",
+  ...Object.fromEntries(IPTV_CHINA.map((file) => [file, "country:cn"]))
 };
 function iptvListId(id) {
   if (!id) return id;
@@ -232,15 +275,22 @@ async function iptvSourceChannels(id) {
   if (id === "iptvorg:int") return iptvParse(await iptvFetch(IPTV_ORG + "countries/int.m3u"));
   if (!id.startsWith("country:")) return iptvParse(await iptvFetch(IPTV_REPO + encodeURIComponent(id) + ".m3u8"));
   const code = id.slice(8);
+  const extra = (IPTV_EXTRA[code] ?? []).map(([name, url, group]) => ({ name, url, group, country: code }));
   const parts = await Promise.allSettled([
     iptvFetch(IPTV_ORG + `countries/${code}.m3u`).then((t) => iptvParse(t).map((c) => ({ ...c, country: code }))),
     iptvFetch(IPTV_REPO + "otherCountry.m3u8").then((t) => iptvParse(t).filter((c) => c.country === code)),
     // Free-TV's groups are its countries, not kinds of channel: leave them ungrouped.
-    iptvFetch(IPTV_FREETV).then((t) => iptvParse(t).filter((c) => c.country === code).map((c) => ({ ...c, group: "" })))
+    iptvFetch(IPTV_FREETV).then((t) => iptvParse(t).filter((c) => c.country === code).map((c) => ({ ...c, group: "" }))),
+    // China: ChinaIPTV's own lists too, ahead of the rest for their groups (CCTV, provinces...).
+    ...(code === "cn" ? IPTV_CHINA : []).map((file) => iptvFetch(IPTV_REPO + file + ".m3u8").then(iptvParse))
   ]);
-  if (parts.every((p) => p.status === "rejected")) throw parts[0].reason;
+  if (code === "cn") parts.unshift(...parts.splice(3));
+  if (parts.every((p) => p.status === "rejected") && !extra.length) throw parts[0].reason;
+  const found = parts.flatMap((p) => p.status === "fulfilled" ? p.value : []);
+  const groups = new Set(found.map((c) => c.group.split(";")[0]));
   const seen = new Set();
-  return parts.flatMap((p) => p.status === "fulfilled" ? p.value : []).filter((c) => !seen.has(c.url) && seen.add(c.url));
+  return [...extra.filter((c) => !groups.has(c.group)), ...found, ...extra.filter((c) => groups.has(c.group))]
+    .filter((c) => !seen.has(c.url) && seen.add(c.url));
 }
 
 // The channels of a menu list, in English and ordered group by group as the
