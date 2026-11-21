@@ -1,22 +1,25 @@
-// TV channels for the table video, from the playlists in
-// github.com/hujingguang/ChinaIPTV, with their Chinese names put into English.
-// Used by the popup (popup-stream.js).
+// TV channels for the table video, from public playlists on GitHub, with
+// Chinese names put into English. Used by the popup (popup-stream.js) and the
+// video window (stream-guide.js).
+//
+// Sources:
+//  - ChinaIPTV (github.com/hujingguang/ChinaIPTV): China's channels, world news,
+//    and otherCountry.m3u8, channels from 30 countries (tvg-id "Name.uk").
+//  - iptv-org (github.com/iptv-org/iptv, public domain): the big community index,
+//    a playlist per country (countries/<code>.m3u) and one of international ones.
+//  - Free-TV (github.com/Free-TV/IPTV): free-to-air channels, tagged by country.
+// A country in the menu is all three put together, without repeats.
 
 const IPTV_REPO = "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/";
+const IPTV_ORG = "https://iptv-org.github.io/iptv/";
+const IPTV_FREETV = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8";
 
-// The popup's menu of channel lists, in groups. A list is one of the repo's
-// playlists ("file"), or one country's channels from otherCountry.m3u8
-// ("otherCountry:<code>", by the country code its channels carry). That file
-// has every channel of the repo's separate country lists and more, so it stands
-// in for them. Left out: the adult list, one marked as not working, a list of
-// other lists, and North Korea (its one channel is in a format the player can't play).
-const IPTV_COUNTRIES = {
-  au: "Australia", br: "Brazil", ca: "Canada", cu: "Cuba", fi: "Finland", fr: "France", de: "Germany",
-  gr: "Greece", hk: "Hong Kong", is: "Iceland", il: "Israel", it: "Italy", jp: "Japan", mo: "Macao",
-  nz: "New Zealand", no: "Norway", ph: "Philippines", pl: "Poland", ru: "Russia", rw: "Rwanda", rs: "Serbia",
-  sg: "Singapore", kr: "South Korea", se: "Sweden", tw: "Taiwan", th: "Thailand", ua: "Ukraine", uk: "UK",
-  us: "USA", vn: "Vietnam"
-};
+// The popup's menu of channel lists, in groups. A list is a ChinaIPTV playlist
+// ("file"), iptv-org's international channels ("iptvorg:int"), or a country
+// ("country:<code>"). The countries are those with channels that worked when the
+// extension was made (IPTV_COUNTRIES, iptv-countries.js, from tools/iptv_check.mjs).
+// Left out of ChinaIPTV: its adult list, one marked as not working, a list of
+// other lists, and its separate country lists (otherCountry has all of theirs).
 const IPTV_MENU = [
   ["China", [
     ["cnTV_AutoUpdate", "China (kept up to date)"],
@@ -27,17 +30,21 @@ const IPTV_MENU = [
     ["HunanTV1", "Hunan TV 1"],
     ["HunanTV2", "Hunan TV 2"]
   ]],
-  ["News", [["Global", "World news"]]],
-  ["Countries", Object.entries(IPTV_COUNTRIES)
+  ["News", [["Global", "World news"], ["iptvorg:int", "International channels"]]],
+  ["Countries", Object.entries(typeof IPTV_COUNTRIES === "object" ? IPTV_COUNTRIES : {})
     .sort((a, b) => a[1].localeCompare(b[1]))
-    .map(([code, name]) => ["otherCountry:" + code, name])]
+    .map(([code, name]) => ["country:" + code, name])]
 ];
 // Lists in earlier versions of the menu, for a choice saved then.
 const IPTV_RENAMED = {
-  HongKong: "otherCountry:hk", Macao: "otherCountry:mo", TaiWan: "otherCountry:tw", Singapore: "otherCountry:sg",
-  Japan: "otherCountry:jp", southKorea: "otherCountry:kr", Russia: "otherCountry:ru", UK: "otherCountry:uk",
-  USA: "otherCountry:us"
+  HongKong: "country:hk", Macao: "country:mo", TaiWan: "country:tw", Singapore: "country:sg",
+  Japan: "country:jp", southKorea: "country:kr", Russia: "country:ru", UK: "country:uk", USA: "country:us"
 };
+function iptvListId(id) {
+  if (!id) return id;
+  if (id.startsWith("otherCountry:")) return "country:" + id.slice(13);
+  return IPTV_RENAMED[id] ?? id;
+}
 
 // Whole names that don't translate word by word.
 const IPTV_NAMES = {
@@ -152,8 +159,20 @@ function iptvEnglish(name, group = false) {
   return out.filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || name;
 }
 
-// An M3U playlist: [{ name, group, country, url }] for each channel with a web
-// link. The country is the code on the end of its tvg-id ("BBCNews.uk"), if any.
+// Video sites' pages rather than streams (Free-TV lists live YouTube channels):
+// the player can't play them.
+const NOT_STREAMS = /^https?:\/\/([\w-]+\.)*(youtube\.com|youtu\.be|dailymotion\.com|twitch\.tv|facebook\.com)\//i;
+
+// A channel's name without the playlists' notes: "(720p)", "[Geo-blocked]",
+// "[Not 24/7]", and Free-TV's circled letters (geo-blocked, not HD...).
+function iptvTidy(name) {
+  return name.replace(/\s*\((\d{3,4}p|\d+K)\)/gi, "").replace(/\s*\[[^\]]*\]/g, "")
+    .replace(/[\u24B6-\u24E9]/g, "").replace(/\s+/g, " ").trim();
+}
+
+// An M3U playlist: [{ name, group, country, url }] for each channel with a
+// stream link. The country is Free-TV's tvg-country, or the code on the end of
+// the tvg-id ("BBCNews.uk"), if any.
 function iptvParse(text) {
   const channels = [];
   let info = null;
@@ -166,15 +185,113 @@ function iptvParse(text) {
         if (line[i] === '"') quoted = !quoted;
         else if (line[i] === "," && !quoted) { comma = i; break; }
       }
+      const tagged = line.match(/tvg-country="([^"]*)"/)?.[1].toLowerCase();
       info = {
-        name: comma >= 0 ? line.slice(comma + 1).trim() : "",
+        name: iptvTidy(comma >= 0 ? line.slice(comma + 1) : ""),
         group: line.match(/group-title="([^"]*)"/)?.[1] ?? "",
-        country: line.match(/tvg-id="[^"]*\.([a-z]{2})(?:@[\w-]*)?"/i)?.[1].toLowerCase() ?? ""
+        // Free-TV says tvg-country="GB"; the others end the tvg-id with ".uk".
+        country: tagged ? (tagged === "gb" ? "uk" : tagged)
+          : line.match(/tvg-id="[^"]*\.([a-z]{2})(?:@[\w-]*)?"/i)?.[1].toLowerCase() ?? ""
       };
     } else if (line && !line.startsWith("#")) {
-      if (info && /^https?:\/\//i.test(line) && !/\.mpd(\?|$)/i.test(line)) channels.push({ ...info, url: line });
+      if (info && /^https?:\/\//i.test(line) && !/\.mpd(\?|$)/i.test(line) && !NOT_STREAMS.test(line)) {
+        channels.push({ ...info, url: line });
+      }
       info = null;
     }
   }
   return channels;
+}
+
+// --- Shared by the popup (popup-stream.js) and the video window (stream-player.js)
+
+const IPTV_CACHE_MS = 6 * 3600 * 1000;      // a playlist is fetched again after this long
+const IPTV_DEAD_MS = 3 * 24 * 3600 * 1000;  // how long a dead mark hides a channel
+
+// A playlist's text, from the cache in local storage while it's fresh, else
+// from the web (or the stale copy if it can't be reached).
+async function iptvFetch(url) {
+  const key = "iptv:" + url;
+  const cached = (await chrome.storage.local.get(key))[key];
+  if (cached && Date.now() - cached.at < IPTV_CACHE_MS) return cached.text;
+  try {
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) throw new Error(res.status);
+    const text = await res.text();
+    chrome.storage.local.set({ [key]: { at: Date.now(), text } }).catch(() => {});
+    return text;
+  } catch (err) {
+    if (cached) return cached.text;
+    throw err;
+  }
+}
+
+// The raw channels of a menu list, from its source(s). A country is every
+// source's channels for it; one that can't be reached is left out.
+async function iptvSourceChannels(id) {
+  if (id === "iptvorg:int") return iptvParse(await iptvFetch(IPTV_ORG + "countries/int.m3u"));
+  if (!id.startsWith("country:")) return iptvParse(await iptvFetch(IPTV_REPO + encodeURIComponent(id) + ".m3u8"));
+  const code = id.slice(8);
+  const parts = await Promise.allSettled([
+    iptvFetch(IPTV_ORG + `countries/${code}.m3u`).then((t) => iptvParse(t).map((c) => ({ ...c, country: code }))),
+    iptvFetch(IPTV_REPO + "otherCountry.m3u8").then((t) => iptvParse(t).filter((c) => c.country === code)),
+    // Free-TV's groups are its countries, not kinds of channel: leave them ungrouped.
+    iptvFetch(IPTV_FREETV).then((t) => iptvParse(t).filter((c) => c.country === code).map((c) => ({ ...c, group: "" })))
+  ]);
+  if (parts.every((p) => p.status === "rejected")) throw parts[0].reason;
+  const seen = new Set();
+  return parts.flatMap((p) => p.status === "fulfilled" ? p.value : []).filter((c) => !seen.has(c.url) && seen.add(c.url));
+}
+
+// The channels of a menu list, in English and ordered group by group as the
+// playlists first mention each group, so stepping through them runs from one
+// group into the next.
+async function iptvChannels(id) {
+  const found = await iptvSourceChannels(id);
+  const order = new Map();
+  const channels = found.map((c) => {
+    const label = iptvEnglish(c.name) || "Unnamed channel";
+    const groupLabel = iptvEnglish(c.group.split(";")[0], true);   // a channel's first group
+    if (!order.has(groupLabel)) order.set(groupLabel, order.size);
+    return { ...c, label, groupLabel, search: `${label} ${c.name} ${groupLabel} ${c.group}`.toLowerCase() };
+  });
+  return channels.map((c, i) => [order.get(c.groupLabel), i, c]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((x) => x[2]);
+}
+
+// The channels to show: not dead (the one that's on always shows), and each
+// name once, as the sources often list the same channel at different links.
+function iptvVisible(channels, health, current, showDead = false) {
+  const names = new Set();
+  return channels.filter((c) => {
+    if (c.url !== current && !showDead && iptvIsDead(c.url, health)) return false;
+    const name = c.label.toLowerCase();
+    if (names.has(name) && c.url !== current) return false;
+    names.add(name);
+    return true;
+  });
+}
+
+// Whether a channel is dead. health is streamHealth from local storage (kept by
+// background.js): a recent dead mark, or one found working, from this browser.
+// Failing that, the list shipped with the extension (iptv-dead.js) decides.
+// Services in its blockedHosts have shut every channel off (Pluto TV plays a
+// "C'est fini" clip on each): always dead, whatever a check said.
+let iptvKnown = null;
+function iptvIsDead(link, health) {
+  if (!iptvKnown) {
+    const k = typeof IPTV_KNOWN_DEAD === "object" ? IPTV_KNOWN_DEAD : {};
+    iptvKnown = { urls: new Set(k.urls ?? []), hosts: k.blockedHosts ?? [], lists: new Set(k.lists ?? []) };
+  }
+  let host = "";
+  try { host = new URL(link).hostname; } catch {}
+  if (iptvKnown.hosts.some((b) => host === b || host.endsWith("." + b))) return true;
+  const h = health?.[link];
+  if (h && (h.ok || Date.now() - h.at < IPTV_DEAD_MS)) return !h.ok;
+  return iptvKnown.urls.has(link);
+}
+
+// Menu lists with no working channels at all when the extension was made.
+function iptvListIsDead(id) {
+  iptvIsDead("", null);   // loads the shipped list
+  return iptvKnown.lists.has(id);
 }

@@ -100,7 +100,8 @@ async function setHealth(url, ok) {
 }
 
 // Does a stream work? Its playlist, then (for a list of qualities) the first
-// quality's playlist, then the first video segment must all load. Many channels
+// quality's playlist, then the first video segment must all load, and not be a
+// "this channel is gone" clip. Many channels
 // answer the first and refuse the rest outside their own country.
 async function probeStream(url) {
   const stop = new AbortController();
@@ -126,6 +127,9 @@ async function probeStream(url) {
     }
     const segment = after(text, "#EXTINF");
     if (!segment) return false;
+    // Pluto TV (and maybe others) answer a channel they've shut off with a
+    // "takedown slate": a short clip saying it's gone, which plays fine.
+    if (/takedown/i.test(segment)) return false;
     return (await get(new URL(segment, res.url).href)).ok;   // the headers are enough: the rest is cut off below
   } catch {
     return false;

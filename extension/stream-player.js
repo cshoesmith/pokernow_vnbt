@@ -20,6 +20,10 @@ const title = document.getElementById("title");
 let hls = null, url = "", wantSound = false, retry = null, typing = null;
 let played = false, markedDead = false;   // for the current link
 
+// Half volume to start with, so unmuting isn't a blast; the window's volume
+// control can turn it up.
+video.volume = 0.5;
+
 if (POPOUT) {
   document.body.classList.add("popout");
   video.controls = true;
@@ -43,6 +47,7 @@ function health(ok) {
 video.addEventListener("playing", () => {
   document.body.classList.add("playing");
   report("playing");
+  window.cpChannelPlaying?.();
   if (!played) { played = true; health(true); }
 });
 video.addEventListener("error", () => { if (!hls && video.getAttribute("src")) again(); });
@@ -60,7 +65,10 @@ function stop() {
 function start(u, retrying = false) {
   stop();
   url = u;
-  if (!retrying) played = markedDead = false;
+  if (!retrying) {
+    played = markedDead = false;
+    window.cpChannelChanged?.(u);   // the video window's guide (stream-guide.js)
+  }
   if (!/^https?:\/\/\S+$/i.test(u)) return;
   if (!retrying) report("loading");
   if (!FILE_RE.test(u) && window.Hls?.isSupported()) {
@@ -83,7 +91,7 @@ function start(u, retrying = false) {
 function again() {
   const u = url;
   report("retrying");
-  if (!played && !markedDead) { markedDead = true; health(false); }
+  if (!played && !markedDead) { markedDead = true; health(false); window.cpChannelFailed?.(); }
   stop();
   retry = setTimeout(() => start(u, true), 5000);
 }
@@ -150,14 +158,30 @@ class ProxyLoader {
 
 // Chrome only lets a video start with sound once someone has clicked in the
 // game; until then it plays muted, and stream.js passes on the first click.
+let blockedMute = false;   // muted only because Chrome held the sound back
 function play() {
   video.muted = !wantSound;
-  video.play().catch(() => {
-    if (video.muted) return;
+  video.play().catch((err) => {
+    // Only Chrome refusing sound (NotAllowedError) means playing muted; a start
+    // cut short by the next channel or a retry (AbortError) doesn't.
+    if (video.muted || err?.name !== "NotAllowedError") return;
+    blockedMute = true;
     video.muted = true;
     video.play().catch(() => {});
   });
 }
+
+// Muting or unmuting in the video window's own controls is the person's choice,
+// and new channels keep it: it becomes the Sound setting (so the popup's tick box
+// agrees, and the table plays the same way once the window closes). The player
+// only ever mutes to match that setting, or when Chrome holds the sound back,
+// which isn't a choice and is left out.
+video.addEventListener("volumechange", () => {
+  if (!video.muted) blockedMute = false;
+  if (!POPOUT || blockedMute || wantSound === !video.muted) return;   // nothing chosen
+  wantSound = !video.muted;
+  chrome.storage.sync.set({ tableStreamSound: wantSound });
+});
 
 addEventListener("message", (e) => {
   if (e.data !== "cp-stream-unmute" || !POKER_NOW.includes(e.origin)) return;

@@ -2,19 +2,19 @@
 # the "Check channels" results (streamHealth) from the extension's storage in
 # Chrome and writes them into extension/iptv-dead.js, which the popup uses to
 # hide those channels before anyone has checked them. Merges with what's there:
-# a channel stays listed until a check here finds it working again. Menu lists
-# whose every channel is dead are listed too, and the popup leaves them out.
+# a channel stays listed until a check here finds it working again. The rest of
+# the file (blocked services, lists with nothing working) is tools/iptv_check.mjs's,
+# which tests every channel itself; this adds what the popup's checks found.
 #
 # Run a "Check channels" in the popup first, then from the repo root:
 #   python tools/iptv_dead.py
 # (Chrome's storage for the extension lives under its id; pass another profile's
 # "Local Extension Settings/<id>" folder as the argument if it isn't the default.)
 
-import datetime, glob, json, os, re, shutil, struct, sys, tempfile, urllib.request
+import datetime, glob, json, os, re, shutil, struct, sys, tempfile, urllib.parse, urllib.request
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 OUT = os.path.join(ROOT, "extension", "iptv-dead.js")
-MENU = os.path.join(ROOT, "extension", "iptv.js")
 EXT_ID = "nbonfcgjghifjaipcjhdhginglomcoib"
 DEFAULT = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "User Data", "Default",
                        "Local Extension Settings", EXT_ID)
@@ -138,51 +138,6 @@ def latest_values(folder):
     return {k: v.decode("utf-8") for k, (_, v) in newest.items() if v is not None}
 
 
-# --- The popup's menu of lists ----------------------------------------------
-
-def menu_lists():
-    """[(id, label)] for each list in the popup's menu (IPTV_MENU in iptv.js)."""
-    src = open(MENU, encoding="utf-8").read()
-    repo = re.search(r'IPTV_REPO = "([^"]+)"', src).group(1)
-    countries = dict(re.findall(r'(\w\w): "([^"]+)"', src[src.index("IPTV_COUNTRIES"):src.index("IPTV_MENU")]))
-    menu = src[src.index("const IPTV_MENU"):src.index("IPTV_RENAMED")]
-    lists = re.findall(r'\["(\w+)", "([^"]+)"\]', menu)
-    country_file = re.search(r'\["(\w+):" \+ code', menu).group(1)
-    lists += [(f"{country_file}:{code}", name) for code, name in countries.items()]
-    return repo, lists
-
-
-def channels(text):
-    """[(country, url)] for a playlist's channels, as iptvParse in iptv.js reads them."""
-    out, country = [], None
-    for line in text.splitlines():
-        line = line.strip()
-        if line.startswith("#EXTINF"):
-            m = re.search(r'tvg-id="[^"]*\.([a-z]{2})(?:@[\w-]*)?"', line, re.I)
-            country = m.group(1).lower() if m else ""
-        elif line and not line.startswith("#"):
-            if country is not None and re.match(r"https?://", line, re.I) and not re.search(r"\.mpd(\?|$)", line, re.I):
-                out.append((country, line))
-            country = None
-    return out
-
-
-def dead_lists(dead_urls):
-    """Menu lists with channels, all of them dead."""
-    repo, lists = menu_lists()
-    files = {}
-    found = []
-    for list_id, label in lists:
-        file, _, country = list_id.partition(":")
-        if file not in files:
-            with urllib.request.urlopen(repo + file + ".m3u8", timeout=60) as res:
-                files[file] = channels(res.read().decode("utf-8", "replace"))
-        urls = [u for c, u in files[file] if not country or c == country]
-        if urls and all(u in dead_urls for u in urls):
-            found.append((list_id, label))
-    return found
-
-
 def main():
     folder = sys.argv[1] if len(sys.argv) > 1 else DEFAULT
     values = latest_values(folder)
@@ -192,26 +147,24 @@ def main():
     dead = {u for u, h in health.items() if not h["ok"]}
     working = {u for u, h in health.items() if h["ok"]}
 
-    known = set()
-    if os.path.exists(OUT):
-        m = re.search(r"urls: (\[.*?\])", open(OUT, encoding="utf-8").read(), re.S)
-        if m: known = set(json.loads(m.group(1)))
-    urls = sorted((known | dead) - working)
-    gone = dead_lists(set(urls))
+    # The rest of the file (blocked services, lists with nothing working) comes
+    # from tools/iptv_check.mjs and is kept as it is; only the channels change.
+    src = open(OUT, encoding="utf-8").read()
+    m = re.search(r"  urls: (\[.*?\])\n", src, re.S)
+    known = set(json.loads(m.group(1)))
+    blocked_hosts = json.loads(re.search(r"blockedHosts: (\[.*?\])", src).group(1))
 
-    today = datetime.date.today().isoformat()
+    def blocked(url):
+        host = urllib.parse.urlsplit(url).hostname or ""
+        return any(host == b or host.endswith("." + b) for b in blocked_hosts)
+
+    urls = sorted(u for u in (known | dead) - working if not blocked(u))   # blocked ones go by host
     body = ",\n    ".join(json.dumps(u) for u in urls)
-    open(OUT, "w", encoding="utf-8", newline="\n").write(
-        "// Table video channels found dead (off air, or not shown here), so the popup\n"
-        "// hides them before you've checked them yourself, and the menu lists with no\n"
-        "// working channels at all, which it leaves out. Made by tools/iptv_dead.py from\n"
-        "// Check channels runs; your own checks, and channels you watch, overrule it.\n"
-        f"const IPTV_KNOWN_DEAD = {{\n  checked: {json.dumps(today)},\n"
-        f"  lists: {json.dumps([i for i, _ in gone])},\n"
-        f"  urls: [\n    {body}\n  ]\n}};\n")
+    src = src[:m.start(1)] + f"[\n    {body}\n  ]" + src[m.end(1):]
+    src = re.sub(r'checked: "[^"]*"', f'checked: {json.dumps(datetime.date.today().isoformat())}', src)
+    open(OUT, "w", encoding="utf-8", newline="\n").write(src)
     print(f"{len(urls)} dead channels in {os.path.relpath(OUT, ROOT)} "
           f"({len(dead)} dead and {len(working)} working in the checks, {len(known)} listed before)")
-    print("Lists with nothing working, left out of the menu:", ", ".join(l for _, l in gone) or "none")
     if "streamCheck" in values:
         c = json.loads(values["streamCheck"])
         if c["done"] < c["total"]:

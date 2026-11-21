@@ -11,22 +11,13 @@
 // extension was made (iptv-dead.js) start out hidden too, until found working.
 
 (() => {
-  const CACHE_MS = 6 * 3600 * 1000;   // a list is fetched again after this long
-  const DEAD_MS = 3 * 24 * 3600 * 1000;   // how long a dead mark hides a channel
   const $ = (id) => document.getElementById(id);
   const listSel = $("streamList"), picker = $("channelPicker"), filter = $("channelFilter");
   const channelSel = $("channel"), custom = $("tableStream"), status = $("streamStatus");
   const showDead = $("showDead"), deadCount = $("deadCount"), checkButton = $("checkChannels"), checkInfo = $("checkInfo");
   let channels = [], url = "", loading = null, saveTimer = null, health = {}, check = null, renderTimer = null;
 
-  // Dead if this browser found it dead lately; failing that, if it's in the list
-  // shipped with the extension (iptv-dead.js). Found working here overrules that.
-  const knownDead = new Set(typeof IPTV_KNOWN_DEAD === "object" ? IPTV_KNOWN_DEAD.urls : []);
-  const isDead = (link) => {
-    const h = health[link];
-    if (h && (h.ok || Date.now() - h.at < DEAD_MS)) return !h.ok;
-    return knownDead.has(link);
-  };
+  const isDead = (link) => iptvIsDead(link, health);   // see iptv.js
 
   // "My own link" (paste any .m3u8 or video link) is switched off for now: set
   // this to true to offer it again. Everything behind it is still here.
@@ -34,30 +25,11 @@
   listSel.append(new Option("Nothing (the table)", ""));
   if (OWN_LINK) listSel.append(new Option("My own link", "custom"));
   // Lists with no working channels at all when the extension was made are left out.
-  const deadLists = new Set(typeof IPTV_KNOWN_DEAD === "object" ? IPTV_KNOWN_DEAD.lists ?? [] : []);
   for (const [heading, lists] of IPTV_MENU) {
     const group = document.createElement("optgroup");
     group.label = heading;
-    for (const [id, label] of lists) if (!deadLists.has(id)) group.append(new Option(label, id));
+    for (const [id, label] of lists) if (!iptvListIsDead(id)) group.append(new Option(label, id));
     if (group.children.length) listSel.append(group);
-  }
-
-  // A playlist's text, from the cache while it's fresh, else from GitHub (or the
-  // stale copy if GitHub can't be reached).
-  async function fetchList(file) {
-    const key = "iptv:" + file;
-    const cached = (await chrome.storage.local.get(key))[key];
-    if (cached && Date.now() - cached.at < CACHE_MS) return cached.text;
-    try {
-      const res = await fetch(IPTV_REPO + encodeURIComponent(file) + ".m3u8", { cache: "no-cache" });
-      if (!res.ok) throw new Error(res.status);
-      const text = await res.text();
-      chrome.storage.local.set({ [key]: { at: Date.now(), text } }).catch(() => {});
-      return text;
-    } catch (err) {
-      if (cached) return cached.text;
-      throw err;
-    }
   }
 
   // id is a playlist, or "playlist:country" for one country's channels in it.
@@ -68,15 +40,10 @@
     channels = [];
     render("Loading channels…");
     const mine = loading = id;
-    const [file, country] = id.split(":");
     try {
-      const found = iptvParse(await fetchList(file)).filter((c) => !country || c.country === country);
+      const found = await iptvChannels(id);
       if (loading !== mine) return;   // another list was picked meanwhile
-      channels = found.map((c) => {
-        const label = iptvEnglish(c.name) || "Unnamed channel";
-        const group = iptvEnglish(c.group, true);
-        return { ...c, label, groupLabel: group, search: `${label} ${c.name} ${group} ${c.group}`.toLowerCase() };
-      });
+      channels = found;
       render();
     } catch {
       if (loading === mine) render("Couldn't load this list. Try again later.");
@@ -90,7 +57,7 @@
     deadCount.textContent = dead;
     showDead.parentElement.hidden = !dead;
     // The channel that's on stays in the menu even when it's marked dead.
-    const shown = channels.filter((c) => (!q || c.search.includes(q)) && (showDead.checked || c.url === url || !isDead(c.url)));
+    const shown = iptvVisible(channels.filter((c) => !q || c.search.includes(q)), health, url, showDead.checked);
     const head = new Option(placeholder || (shown.length ? `Pick a channel (${shown.length})`
       : !q && dead ? "None working: tick Show dead channels" : "No channels match"), "");
     head.disabled = true;
@@ -206,11 +173,20 @@
     if (channels.length) render();
   });
 
+  // Playlists used to be cached by file name ("iptv:UK"), now by address
+  // ("iptv:https://..."): clear the old copies out, once.
+  chrome.storage.local.get("iptvCacheByUrl").then(async ({ iptvCacheByUrl }) => {
+    if (iptvCacheByUrl) return;
+    const old = Object.keys(await chrome.storage.local.get(null)).filter((k) => k.startsWith("iptv:") && !k.startsWith("iptv:http"));
+    await chrome.storage.local.remove(old);
+    await chrome.storage.local.set({ iptvCacheByUrl: true });
+  }).catch(() => {});
+
   chrome.storage.sync.get({ tableStream: "", tableStreamList: null }, (s) => {
     url = s.tableStream.trim();
     // A link saved before there was a menu is your own, and so is one from a list
     // that's no longer in the menu.
-    const list = IPTV_RENAMED[s.tableStreamList] ?? s.tableStreamList ?? (url ? "custom" : "");
+    const list = iptvListId(s.tableStreamList) ?? (url ? "custom" : "");
     listSel.value = list;
     if (listSel.selectedIndex < 0) listSel.value = url && OWN_LINK ? "custom" : "";
     if (listSel.value === "custom") custom.value = url;
