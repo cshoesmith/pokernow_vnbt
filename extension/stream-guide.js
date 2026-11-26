@@ -14,7 +14,7 @@
   const LEAVE_MS = 500;    // the guide slides away this long after the mouse leaves it
   const UNUSED_MS = 2500;  // ...or this long after opening, if the mouse never goes onto it
   const guide = document.getElementById("guide"), scroller = document.getElementById("guideScroll");
-  const tab = document.getElementById("guideTab");
+  const tab = document.getElementById("guideTab"), zap = document.getElementById("zap");
   const listName = document.getElementById("guideList"), osd = document.getElementById("osd");
   let choosing = false;   // showing the lists instead of the channels
   let listId = "", channels = [], shown = [], health = {}, hideTimer = null, tabTimer = null, osdTimer = null, loading = null, redraw = null;
@@ -26,12 +26,16 @@
   const body = document.body.classList;
 
   function showTab() {
-    body.add("tab-on");   // the full-screen button comes with it; the tab itself needs channels
+    // The full-screen button (and, in full screen, channel up/down) comes with it;
+    // the tab itself needs channels.
+    body.add("tab-on");
     clearTimeout(tabTimer);
-    tabTimer = setTimeout(() => { if (!tab.matches(":hover")) body.remove("tab-on"); }, TAB_MS);
+    tabTimer = setTimeout(() => { if (!tab.matches(":hover") && !zap.matches(":hover")) body.remove("tab-on"); }, TAB_MS);
   }
   addEventListener("mousemove", showTab);
+  addEventListener("pointerdown", showTab);   // a click or tap on the screen shows them too
   tab.addEventListener("mouseleave", showTab);
+  zap.addEventListener("mouseleave", showTab);
 
   // Open the guide, closing it after ms unless the mouse is on it by then.
   function showGuide(ms = UNUSED_MS) {
@@ -190,16 +194,19 @@
     chrome.storage.sync.set({ tableStream: c.url });   // ...and remember it, for the popup and the table
   }
 
-  function step(by) {
+  // glimpse: slide the guide out briefly to show where you are. Not from the
+  // buttons over the picture: the channel's name shows anyway, and it's less to look at.
+  function step(by, glimpse = true) {
     closeChooser();
     if (!shown.length) return;
     const at = shown.findIndex((c) => c.url === url);
     pick(shown[at < 0 ? (by > 0 ? 0 : shown.length - 1) : (at + by + shown.length) % shown.length]);
-    if (!guide.matches(":hover")) showGuide(1500);   // a glimpse of where you are
+    if (glimpse && !guide.matches(":hover")) showGuide(1500);
   }
   document.getElementById("chUp").addEventListener("click", () => step(-1));
   document.getElementById("chDown").addEventListener("click", () => step(1));
-  // Up/Down change channel (rather than the video's volume, as they otherwise might).
+  document.getElementById("zapUp").addEventListener("click", () => step(-1, false));
+  document.getElementById("zapDown").addEventListener("click", () => step(1, false));  // Up/Down change channel (rather than the video's volume, as they otherwise might).
   addEventListener("keydown", (e) => {
     const by = { ArrowUp: -1, PageUp: -1, ArrowDown: 1, PageDown: 1 }[e.key];
     if (!by || !channels.length) return;
