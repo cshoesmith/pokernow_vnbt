@@ -2,40 +2,48 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!-- Phones: the page's own size, not a shrunken desktop page; no pinch zoom, so a
+       double tap goes to full screen (stream-guide.js) rather than zooming. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>vNBT Poker TV</title>
-  <!-- The table video, shown in a frame over the felt by stream.js. Running it
-       here, as an extension page, lets it load streams from any site: Poker Now's
-       own page would block them, and so would most streams' servers. -->
+  <link rel="icon" href="icons/icon32.png">
+  <!-- The TV window, opened from the TV button on the table (stream.js, background.js).
+       Running as an extension page lets it load streams from any site, which most
+       streams' servers wouldn't allow an ordinary web page to do. Kept in step with
+       vNBT TV's tv.html (../vnbt-tv). -->
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
-    video, svg.title, .shade { position: absolute; inset: 0; width: 100%; height: 100%; }
-    video { object-fit: cover; }
-    /* Darker towards the rail, so the video sinks into the table and cards stay clear on it. */
-    .shade { background: radial-gradient(ellipse at center, rgba(0,0,0,0.12) 55%, rgba(0,0,0,0.6) 100%); }
-    /* Nothing shows until the video is playing: until then the table's own felt does. */
-    body:not(.playing) > :is(video, .shade, svg.title) { visibility: hidden; }
-    /* Its own window: the whole picture on black, no felt shading or title. */
-    body.popout { background: #000; }
-    body.popout video { object-fit: contain; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+    video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    body:not(.playing) > video { visibility: hidden; }
     /* Chrome shows the player's full-screen button greyed out (nofullscreen,
-       below) rather than leaving it off; hide it, as the window has its own. */
+       below) rather than leaving it off; hide it, as the page has its own. */
     video::-webkit-media-controls-fullscreen-button { display: none; }
-    body.popout .shade, body.popout svg.title { display: none; }
 
-    /* The video window's channel guide (stream-guide.js): slides in from the right
-       when the mouse moves, above the video's own controls along the bottom. */
-    #guide, #osd, #guideTab, #fullBtn, #zap { display: none; }
+    /* Full screen for the whole page, guide and all: top right, shown with the tab. */
+    #fullBtn {
+      display: flex; align-items: center; justify-content: center; position: absolute; top: 10px; right: 10px; z-index: 1;
+      width: 34px; height: 34px; padding: 0; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px;
+      background: rgba(12, 12, 16, 0.7); color: #fff; cursor: pointer;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    body.tab-on #fullBtn { opacity: 0.85; pointer-events: auto; }
+    #fullBtn:hover { opacity: 1; background: rgba(30, 30, 38, 0.9); }
+    body.guide-on #fullBtn { opacity: 0; pointer-events: none; }
+    #fullBtn svg { width: 18px; height: 18px; }
+    #fullBtn .shrink, :root:fullscreen #fullBtn .grow { display: none; }
+    :root:fullscreen #fullBtn .shrink { display: inline; }
+
     /* Channel + and - over the picture: left edge, translucent, shown with the
        full-screen button when the mouse moves or the screen is clicked. */
-    body.popout.has-channels #zap {
+    #zap {
       display: flex; flex-direction: column; gap: 10px; position: absolute; left: 14px; top: 50%; z-index: 1;
       transform: translateY(-50%); opacity: 0; pointer-events: none; transition: opacity 0.2s;
     }
-    body.popout.tab-on.has-channels #zap { opacity: 1; pointer-events: auto; }
+    body.tab-on #zap { opacity: 1; pointer-events: auto; }
     /* A phone held upright (or a tall, narrow window): side by side at the bottom
        middle, above the video's controls, where a thumb reaches them; - then +. */
     @media (orientation: portrait) and (max-width: 700px) {
-      body.popout.has-channels #zap { flex-direction: row-reverse; gap: 18px; left: 50%; top: auto; bottom: 76px; transform: translateX(-50%); }
+      #zap { flex-direction: row-reverse; gap: 18px; left: 50%; top: auto; bottom: 76px; transform: translateX(-50%); }
       body #zap button { width: 52px; height: 52px; }   /* (outranks the size below) */
     }
     #zap button {
@@ -45,39 +53,34 @@
     }
     #zap button:hover { opacity: 1; background: rgba(30, 30, 38, 0.8); }
     #zap svg { width: 22px; height: 22px; }
-    /* Full screen for the whole window, guide and all: top right, shown with the tab. */
-    body.popout #fullBtn {
-      display: flex; align-items: center; justify-content: center; position: absolute; top: 10px; right: 10px; z-index: 1;
-      width: 34px; height: 34px; padding: 0; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px;
-      background: rgba(12, 12, 16, 0.7); color: #fff; cursor: pointer;
-      opacity: 0; pointer-events: none; transition: opacity 0.2s;
-    }
-    body.popout.tab-on #fullBtn { opacity: 0.85; pointer-events: auto; }
-    body.popout #fullBtn:hover { opacity: 1; background: rgba(30, 30, 38, 0.9); }
-    body.popout.guide-on #fullBtn { opacity: 0; pointer-events: none; }
-    #fullBtn svg { width: 18px; height: 18px; }
-    #fullBtn .shrink, :root:fullscreen #fullBtn .grow { display: none; }
-    :root:fullscreen #fullBtn .shrink { display: inline; }
+
     /* The tab that pulls the guide out, shown while the mouse is moving. */
-    body.popout #guideTab {
-      display: block; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    #guideTab {
+      position: absolute; right: 0; top: 50%; transform: translateY(-50%);
       writing-mode: vertical-rl; padding: 14px 7px; border: 0; border-radius: 8px 0 0 8px;
       background: rgba(12, 12, 16, 0.7); color: #e9c46a; font: 600 12px system-ui, sans-serif; letter-spacing: 0.08em;
       cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.2s;
     }
-    body.popout.tab-on.has-channels #guideTab { opacity: 0.85; pointer-events: auto; }
-    body.popout #guideTab:hover { opacity: 1; background: rgba(30, 30, 38, 0.9); }
-    body.popout.guide-on #guideTab { opacity: 0; pointer-events: none; }
-    body.popout #guide {
-      z-index: 2;
-      display: flex; flex-direction: column; position: absolute; top: 0; right: 0; bottom: 64px; width: 250px;
-      background: rgba(14, 14, 18, 0.88); color: #eee; will-change: transform;
+    body.tab-on #guideTab { opacity: 0.85; pointer-events: auto; }
+    #guideTab:hover { opacity: 1; background: rgba(30, 30, 38, 0.9); }
+    body.guide-on #guideTab { opacity: 0; pointer-events: none; }
+
+    /* The channel guide (stream-guide.js): slides in from the right, above the
+       video's own controls along the bottom. */
+    #guide {
+      z-index: 2; display: flex; flex-direction: column; position: absolute; top: 0; right: 0; bottom: 64px; width: 270px; max-width: 85vw;
+      background: rgba(14, 14, 18, 0.9); color: #eee; will-change: transform;
       font: 13px system-ui, sans-serif; border-bottom-left-radius: 8px;
       transform: translateX(100%); transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
-    body.popout.guide-on #guide { transform: none; }
+    body.guide-on #guide { transform: none; }
     #guideList { padding: 8px 12px 6px; font-weight: 600; font-size: 12px; color: #e9c46a; cursor: pointer; user-select: none; }
     #guideList:hover { color: #ffd98a; background: rgba(255,255,255,0.06); }
+    #guideSearch {
+      margin: 0 10px 6px; padding: 4px 8px; border: 1px solid #45454f; border-radius: 4px;
+      background: #2c2c33; color: #eee; font: inherit;
+    }
+    #guideSearch:focus { outline: none; border-color: #e9c46a; }
     #guide .step { border: 0; background: rgba(255,255,255,0.06); color: #ddd; font-size: 11px; padding: 4px; cursor: pointer; }
     #guide .step:hover { background: rgba(255,255,255,0.16); color: #fff; }
     #guideScroll { position: relative; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent; }
@@ -88,28 +91,30 @@
     #guideScroll .ch { padding: 5px 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #guideScroll .ch:hover { background: rgba(255,255,255,0.1); }
     #guideScroll .ch.on { background: rgba(233, 196, 106, 0.32); color: #fff; font-weight: 600; }
+    #guideScroll .ch.dead { color: #888; }
     #guideScroll .empty { padding: 10px 12px; color: #aaa; }
+    #guideFoot { padding: 6px 10px 8px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 12px; color: #bbb; }
+    #guideFoot .row { display: flex; align-items: center; gap: 8px; }
+    #guideFoot button { background: #2c2c33; color: #eee; border: 1px solid #45454f; border-radius: 4px; font: inherit; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+    #guideFoot button:hover { border-color: #6a6a76; }
+    #guideFoot button:disabled { opacity: 0.5; cursor: default; }
+    #guideFoot label { display: flex; align-items: center; gap: 6px; margin-top: 5px; cursor: pointer; }
+    #guideFoot label[hidden] { display: none; }
+
     /* The channel's name for a moment after it changes. */
-    body.popout #osd {
-      display: block; position: absolute; top: 14px; left: 14px; max-width: 60%; padding: 8px 14px; border-radius: 8px;
+    #osd {
+      position: absolute; top: 14px; left: 14px; max-width: 60%; padding: 8px 14px; border-radius: 8px;
       background: rgba(0,0,0,0.6); color: #fff; font: 600 17px system-ui, sans-serif;
       opacity: 0; transition: opacity 0.3s; pointer-events: none;
     }
-    body.popout #osd.on { opacity: 1; }
+    #osd.on { opacity: 1; }
     #osd small { display: block; font-weight: 400; font-size: 12px; color: #ccc; margin-top: 2px; }
   </style>
 </head>
 <body>
   <!-- Its own full-screen button is off (nofullscreen): it would take only the video
-       full screen, leaving the channel guide behind. The window has its own (#fullBtn). -->
-  <video id="video" playsinline loop muted controlslist="nofullscreen" disablepictureinpicture></video>
-  <div class="shade"></div>
-  <!-- The table title, which the video covers, drawn again on top of it: the frame
-       is the felt ellipse of the 1889x892 table image, at 351,138 and 1192x591. -->
-  <svg class="title" viewBox="351 138 1192 591" preserveAspectRatio="xMidYMid slice">
-    <text id="title" x="947" y="619" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
-      font-size="48" font-weight="600" letter-spacing="4" fill="#fff" fill-opacity="0.75"></text>
-  </svg>
+       full screen, leaving the channel guide behind. The page has its own (#fullBtn). -->
+  <video id="video" playsinline loop muted controls controlslist="nofullscreen" disablepictureinpicture></video>
   <button type="button" id="guideTab" title="Channels">&#9776; Channels</button>
   <button type="button" id="fullBtn" title="Full screen (F)" aria-label="Full screen">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -127,9 +132,17 @@
   </div>
   <div id="guide" aria-label="Channels">
     <div id="guideList" role="button" tabindex="0" title="Choose another list"></div>
+    <input type="search" id="guideSearch" placeholder="Search channels" spellcheck="false">
     <button type="button" class="step" id="chUp" title="Previous channel (Up arrow)">&#9650;</button>
     <div id="guideScroll"></div>
     <button type="button" class="step" id="chDown" title="Next channel (Down arrow)">&#9660;</button>
+    <div id="guideFoot">
+      <div class="row">
+        <button type="button" id="checkChannels" title="Test every channel in this list and hide the ones that don't work">Check channels</button>
+        <span id="checkInfo"></span>
+      </div>
+      <label hidden><input type="checkbox" id="showDead"> <span>Show dead channels (<span id="deadCount">0</span>)</span></label>
+    </div>
   </div>
   <div id="osd"></div>
   <script src="lib/hls.min.js"></script>

@@ -26,17 +26,6 @@
     .name-row button { padding: 1px 6px; line-height: 1.2; }
     #addName { font-size: 12px; padding: 2px 8px; }
     [hidden] { display: none !important; }
-    .check-row { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
-    .check-row button { font-size: 12px; padding: 2px 8px; white-space: nowrap; }
-    .check-row button:disabled { opacity: 0.5; cursor: default; }
-    #checkInfo { font-size: 11px; color: #bbb; }
-    label.small { font-size: 12px; padding: 3px 0 0; }
-    .channel-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
-    .channel-row select { padding: 2px; }
-    .channel-row button { padding: 1px 5px; font-size: 11px; }
-    #streamStatus { margin: 4px 0 0; font-size: 12px; color: #bbb; }
-    #streamStatus:empty { display: none; }
-    #streamStatus.bad { color: #f0a868; }
   </style>
 </head>
 <body>
@@ -62,26 +51,7 @@
       <option value="5">Gold</option>
     </select>
   </label>
-  <h2>Table video</h2>
-  <label class="select">Show
-    <select id="streamList"></select>
-  </label>
-  <div id="channelPicker" hidden>
-    <input type="text" id="channelFilter" placeholder="Search channels" spellcheck="false">
-    <div class="channel-row">
-      <button type="button" id="prevChannel" title="Previous channel">&#9664;</button>
-      <select id="channel" title="Channel"></select>
-      <button type="button" id="nextChannel" title="Next channel">&#9654;</button>
-    </div>
-    <div class="check-row">
-      <button type="button" id="checkChannels" title="Test every channel in this list and hide the ones that don't work">Check channels</button>
-      <span id="checkInfo"></span>
-    </div>
-    <label class="small" hidden><input type="checkbox" id="showDead"> <span>Show dead channels (<span id="deadCount">0</span>)</span></label>
-  </div>
-  <input type="text" id="tableStream" hidden placeholder="Link to an .m3u8 stream or video file" spellcheck="false">
-  <p id="streamStatus"></p>
-  <label><input type="checkbox" id="tableStreamSound"> Sound</label>
+  <label title="A TV button on the table opens live TV in its own window, with a channel guide"><input type="checkbox" id="tv"> TV</label>
   <h2>Panels</h2>
   <label><input type="checkbox" id="stackChart"> Stack chart</label>
   <label><input type="checkbox" id="winOdds"> Win chance</label>
@@ -100,9 +70,5 @@
   </div>
   <p id="beepStatus"></p>
   <script src="popup.js"></script>
-  <script src="iptv-countries.js"></script>
-  <script src="iptv.js"></script>
-  <script src="iptv-dead.js"></script>
-  <script src="popup-stream.js"></script>
 </body>
 </html>

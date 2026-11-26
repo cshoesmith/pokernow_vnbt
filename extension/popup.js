@@ -4,7 +4,7 @@ const DEFAULTS = {
   videoControls: true,
   beerTheme: true,
   tableTitle: "vNBT Poker Challenge",
-  tableStreamSound: false,   // the stream itself is picked in popup-stream.js
+  tv: true,   // the TV button on the table (stream.js); channels are picked in the TV window
   holidayWorkaround: false,
   stackChart: true,
   winOdds: true,

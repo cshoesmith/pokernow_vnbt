@@ -3,19 +3,16 @@ vNBT Poker - Chrome extension for Poker Now
 
 What it does (on pokernow.com game pages):
   - Beer-themed table with a title (default "vNBT Poker Challenge")
-  - Table video: live TV on the felt, under the cards. Under "Table video"
-    in the popup, pick a list (China, World news, International, or one of
-    181 countries under Countries) and a channel; search, or step through with the arrows.
+  - TV: a small TV button at the top of the felt (untick "TV" in the
+    popup to hide it). It opens live TV in its own window (starting on World
+    news). Move the mouse for the controls: + and - on the left change
+    channel, the full-screen button is top right, and the Channels tab on
+    the right pulls out a guide - click a channel, search, or use the
+    Up/Down keys; click the list's name at the top to change country.
     Many channels are off air or only shown in their own country: one that
-    won't play is marked dead and hidden from the menu, and "Check channels"
-    tests the whole list and hides every dead one (it carries on if the
-    popup closes). "Show dead channels" brings them back; marks last 3 days.
-    Channels already known to be dead come hidden to start with. Muted
-    unless "Sound" is ticked (it then starts once you click in the game). Pick "Nothing"
-    to go back to the felt. The small button at the top of the felt pops
-    the video out into its own window, with a channel guide on the right
-    when you move the mouse (Up/Down keys change channel too; the table goes back to its felt
-    until you close it)
+    won't play is hidden, and "Check channels" in the guide tests the whole
+    list and hides every dead one. Untick "TV" to remove the button and
+    close the window.
   - Chip stack chart for every player, in the bottom-left corner, with a
     gold coin where someone bought back in, and a Winnings view (stack minus
     what they put in); its Table view shows each player's ledger result

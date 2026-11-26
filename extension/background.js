@@ -35,9 +35,9 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     .catch((err) => console.warn("vNBT Poker: screenshot failed", err));
 });
 
-// Fetches http:// stream files for the table video (stream-player.js). Chrome
-// won't load plain http into the player's frame on Poker Now's https page, but
-// the service worker isn't in a page. Only answers the player page itself.
+// Fetches http:// stream files for the TV window (stream-player.js). Chrome
+// won't load plain http into a secure page like the window's, but the service
+// worker isn't a page. Only answers the TV window itself.
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg?.type !== "stream-fetch") return;
   if (sender.url?.split(/[?#]/)[0] !== chrome.runtime.getURL("stream.html")) return;
@@ -54,26 +54,21 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   return true;   // reply is async
 });
 
-// The table video's own window, opened from the button on the table (stream.js).
-// Its id is kept in session storage (streamPopout), which the game tabs watch:
-// while it's open they put the table back to its own felt, so only one copy of
-// the video plays. Session storage is cleared when Chrome closes, so a window
-// left open then can't keep the tables bare. Content scripts can only read
-// session storage once it's allowed here.
-chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" }).catch(() => {});
-
+// The TV window, opened from the TV button on the table (stream.js). Its id is
+// kept in session storage (streamPopout), so the button brings an open one to
+// the front rather than opening another.
 chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg?.type !== "stream-popout" || !sender.tab) return;
+  if (msg?.type !== "tv-open" || !sender.tab) return;
   (async () => {
     const { streamPopout: open } = await chrome.storage.session.get("streamPopout");
     if (open) {
       try { await chrome.windows.update(open, { focused: true }); return; } catch {}   // gone: open a new one
     }
     const win = await chrome.windows.create({
-      url: chrome.runtime.getURL("stream.html?popout"), type: "popup", width: 960, height: 540, focused: true
+      url: chrome.runtime.getURL("stream.html"), type: "popup", width: 960, height: 540, focused: true
     });
     await chrome.storage.session.set({ streamPopout: win.id });
-  })().catch((err) => console.warn("vNBT Poker: couldn't open the video window", err));
+  })().catch((err) => console.warn("vNBT Poker: couldn't open the TV window", err));
 });
 
 chrome.windows.onRemoved.addListener(async (id) => {
@@ -81,10 +76,10 @@ chrome.windows.onRemoved.addListener(async (id) => {
   if (streamPopout === id) await chrome.storage.session.remove("streamPopout");
 });
 
-// Which table video channels work. streamHealth in local storage maps a link to
+// Which TV channels work. streamHealth in local storage maps a link to
 // { ok, at }: marked by the player (stream-player.js) when a channel plays or
-// never starts, and by "Check channels" in the popup, which tests a whole list
-// here so it carries on after the popup closes. Only written from here, so two
+// never starts, and by "Check channels" in the TV window's guide, which tests a
+// whole list here so it carries on after the window closes. Only written from here, so two
 // updates can't overwrite each other. Marks older than a week are dropped.
 const HEALTH_KEEP_MS = 7 * 24 * 3600 * 1000;
 let health = null, healthTimer = null;
@@ -140,7 +135,7 @@ async function probeStream(url) {
 }
 
 // Checks every channel in a list, several at a time, with progress in local
-// storage (streamCheck) for the popup. Starting another check stops this one.
+// storage (streamCheck) for the guide. Starting another check stops this one.
 let checkRun = 0;
 async function checkStreams(list, urls) {
   const run = ++checkRun;
@@ -165,7 +160,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   const from = sender.url?.split(/[?#]/)[0];
   if (msg?.type === "stream-health" && from === chrome.runtime.getURL("stream.html") && typeof msg.url === "string") {
     setHealth(msg.url, !!msg.ok);
-  } else if (msg?.type === "stream-check" && from === chrome.runtime.getURL("popup.html") && Array.isArray(msg.urls)) {
+  } else if (msg?.type === "stream-check" && from === chrome.runtime.getURL("stream.html") && Array.isArray(msg.urls)) {
     const urls = [...new Set(msg.urls.filter((u) => typeof u === "string" && /^https?:\/\/\S+$/i.test(u)))];
     checkStreams(String(msg.list), urls);
   }

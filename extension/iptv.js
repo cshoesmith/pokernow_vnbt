@@ -1,6 +1,5 @@
-// TV channels for the table video, from public playlists on GitHub, with
-// Chinese names put into English. Used by the popup (popup-stream.js) and the
-// video window (stream-guide.js).
+// TV channels for the TV window, from public playlists on GitHub, with Chinese
+// names put into English. Used by the window's guide (stream-guide.js).
 //
 // Sources:
 //  - ChinaIPTV (github.com/hujingguang/ChinaIPTV): China's channels, world news,
@@ -61,7 +60,7 @@ const IPTV_EXTRA = {
   ]
 };
 
-// The popup's menu of channel lists, in groups. A list is a ChinaIPTV playlist
+// The menu of channel lists (the guide's list chooser), in groups. A list is a ChinaIPTV playlist
 // ("file"), iptv-org's international channels ("iptvorg:int"), or a country
 // ("country:<code>"). The countries are those with channels that worked when the
 // extension was made (IPTV_COUNTRIES, iptv-countries.js, from tools/iptv_check.mjs).
@@ -246,7 +245,7 @@ function iptvParse(text) {
   return channels;
 }
 
-// --- Shared by the popup (popup-stream.js) and the video window (stream-player.js)
+// --- Loading lists and telling dead channels
 
 const IPTV_CACHE_MS = 6 * 3600 * 1000;      // a playlist is fetched again after this long
 const IPTV_DEAD_MS = 3 * 24 * 3600 * 1000;  // how long a dead mark hides a channel
