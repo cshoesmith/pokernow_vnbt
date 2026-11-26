@@ -25,13 +25,19 @@
     /* The video window's channel guide (stream-guide.js): slides in from the right
        when the mouse moves, above the video's own controls along the bottom. */
     #guide, #osd, #guideTab, #fullBtn, #zap { display: none; }
-    /* Channel up/down over the picture in full screen: left edge, translucent,
-       shown with the full-screen button when the mouse moves or the screen is clicked. */
-    :root:fullscreen body.popout.has-channels #zap {
+    /* Channel + and - over the picture: left edge, translucent, shown with the
+       full-screen button when the mouse moves or the screen is clicked. */
+    body.popout.has-channels #zap {
       display: flex; flex-direction: column; gap: 10px; position: absolute; left: 14px; top: 50%; z-index: 1;
       transform: translateY(-50%); opacity: 0; pointer-events: none; transition: opacity 0.2s;
     }
-    :root:fullscreen body.popout.tab-on.has-channels #zap { opacity: 1; pointer-events: auto; }
+    body.popout.tab-on.has-channels #zap { opacity: 1; pointer-events: auto; }
+    /* A phone held upright (or a tall, narrow window): side by side at the bottom
+       middle, above the video's controls, where a thumb reaches them; - then +. */
+    @media (orientation: portrait) and (max-width: 700px) {
+      body.popout.has-channels #zap { flex-direction: row-reverse; gap: 18px; left: 50%; top: auto; bottom: 76px; transform: translateX(-50%); }
+      body #zap button { width: 52px; height: 52px; }   /* (outranks the size below) */
+    }
     #zap button {
       display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; padding: 0;
       border: 1px solid rgba(255,255,255,0.22); border-radius: 50%; background: rgba(12, 12, 16, 0.45);
@@ -112,11 +118,11 @@
     </svg>
   </button>
   <div id="zap">
-    <button type="button" id="zapUp" title="Previous channel (Up arrow)" aria-label="Previous channel">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+    <button type="button" id="zapNext" title="Next channel (Down arrow)" aria-label="Next channel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
-    <button type="button" id="zapDown" title="Next channel (Down arrow)" aria-label="Next channel">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    <button type="button" id="zapPrev" title="Previous channel (Up arrow)" aria-label="Previous channel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>
     </button>
   </div>
   <div id="guide" aria-label="Channels">

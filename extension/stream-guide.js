@@ -205,8 +205,9 @@
   }
   document.getElementById("chUp").addEventListener("click", () => step(-1));
   document.getElementById("chDown").addEventListener("click", () => step(1));
-  document.getElementById("zapUp").addEventListener("click", () => step(-1, false));
-  document.getElementById("zapDown").addEventListener("click", () => step(1, false));  // Up/Down change channel (rather than the video's volume, as they otherwise might).
+  document.getElementById("zapNext").addEventListener("click", () => step(1, false));   // + and -, as on a remote
+  document.getElementById("zapPrev").addEventListener("click", () => step(-1, false));
+  // Up/Down change channel (rather than the video's volume, as they otherwise might).
   addEventListener("keydown", (e) => {
     const by = { ArrowUp: -1, PageUp: -1, ArrowDown: 1, PageDown: 1 }[e.key];
     if (!by || !channels.length) return;
