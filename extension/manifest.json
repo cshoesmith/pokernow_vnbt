@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "vNBT Poker",
-  "version": "1.5.54",
-  "description": "Poker Now add-ons: beer-themed table with your own title, live TV in its own window from a button on the table, chip stack chart, live win chance for your hand, automatic screenshots of big hands, an Untappd check-in banner, flames round a player's name on a winning streak, a crown for the chip leader, pin-up card backs, warning beeps as your turn timer runs out, and less clutter.",
+  "version": "1.5.55",
+  "description": "Poker Now add-ons: beer-themed table with your own title, live TV in its own window from a button on the table (or on the felt), chip stack chart, live win chance for your hand, automatic screenshots of big hands, an Untappd check-in banner, flames round a player's name on a winning streak, a crown for the chip leader, pin-up card backs, warning beeps as your turn timer runs out, and less clutter.",
   "permissions": ["storage", "unlimitedStorage", "downloads"],
   "host_permissions": ["https://untappd.com/*", "<all_urls>"],
   "background": { "service_worker": "background.js" },
@@ -15,7 +15,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["beer-table.svg", "card-backs/*.webp", "card-backs/*.svg"],
+      "resources": ["beer-table.svg", "table-tv.html", "card-backs/*.webp", "card-backs/*.svg"],
       "matches": ["https://www.pokernow.com/*", "https://pokernow.com/*"]
     }
   ],

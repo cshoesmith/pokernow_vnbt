@@ -1,5 +1,6 @@
 // TV channels for the TV window, from public playlists on GitHub, with Chinese
-// names put into English. Used by the window's guide (stream-guide.js).
+// names put into English. Used by the TV window's guide (stream-guide.js) and
+// the popup's TV on the table menu (popup-stream.js).
 //
 // Sources:
 //  - ChinaIPTV (github.com/hujingguang/ChinaIPTV): China's channels, world news,

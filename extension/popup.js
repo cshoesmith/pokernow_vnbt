@@ -5,6 +5,8 @@ const DEFAULTS = {
   beerTheme: true,
   tableTitle: "vNBT Poker Challenge",
   tv: true,   // the TV button on the table (stream.js); channels are picked in the TV window
+  tvTable: false,   // TV on the felt; its channel menu is popup-stream.js
+  tableStreamSound: false,
   holidayWorkaround: false,
   stackChart: true,
   winOdds: true,

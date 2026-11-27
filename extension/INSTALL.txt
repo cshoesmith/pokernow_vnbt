@@ -13,6 +13,9 @@ What it does (on pokernow.com game pages):
     won't play is hidden, and "Check channels" in the guide tests the whole
     list and hides every dead one. Untick "TV" to remove the button and
     close the window.
+    Tick "TV on the table" to play TV on the felt too: the popup then shows
+    a channel menu (list, search, arrows, Check channels, Sound). The felt
+    goes back to plain while the TV window is open.
   - Chip stack chart for every player, in the bottom-left corner, with a
     gold coin where someone bought back in, and a Winnings view (stack minus
     what they put in); its Table view shows each player's ledger result

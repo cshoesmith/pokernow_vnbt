@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>vNBT Poker table TV</title>
+  <!-- TV on the table: shown in a frame over the felt by stream.js, when "TV on the
+       table" is ticked in the popup. Running it here, as an extension page, lets it
+       load streams from any site: Poker Now's own page would block them, and so
+       would most streams' servers. Plays with the TV window's player
+       (stream-player.js); table-tv.js adds what the felt needs. -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    video, svg.title, .shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+    video { object-fit: cover; }
+    /* Darker towards the rail, so the video sinks into the table and cards stay clear on it. */
+    .shade { background: radial-gradient(ellipse at center, rgba(0,0,0,0.12) 55%, rgba(0,0,0,0.6) 100%); }
+    /* Nothing shows until the video is playing: until then the table's own felt does. */
+    body:not(.playing) > :is(video, .shade, svg.title) { visibility: hidden; }
+  </style>
+</head>
+<body>
+  <video id="video" playsinline loop muted disablepictureinpicture></video>
+  <div class="shade"></div>
+  <!-- The table title, which the video covers, drawn again on top of it: the frame
+       is the felt ellipse of the 1889x892 table image, at 351,138 and 1192x591. -->
+  <svg class="title" viewBox="351 138 1192 591" preserveAspectRatio="xMidYMid slice">
+    <text id="title" x="947" y="619" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+      font-size="48" font-weight="600" letter-spacing="4" fill="#fff" fill-opacity="0.75"></text>
+  </svg>
+  <script src="lib/hls.min.js"></script>
+  <script src="stream-player.js"></script>
+  <script src="table-tv.js"></script>
+</body>
+</html>

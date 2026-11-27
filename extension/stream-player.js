@@ -4,7 +4,8 @@
 // straight in the <video>. A live stream that drops is retried every few
 // seconds. The guide (stream-guide.js) changes channel with start() and hears
 // back through the cpChannel* hooks. The window closes itself when TV is
-// switched off in the popup (sync setting tv).
+// switched off in the popup (sync setting tv). The frame on the felt
+// (table-tv.html, table-tv.js) plays with it too.
 //
 // Kept in step with vNBT TV's tv-player.js (../vnbt-tv), which differs only in
 // its setting names and not closing.

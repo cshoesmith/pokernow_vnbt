@@ -35,12 +35,16 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     .catch((err) => console.warn("vNBT Poker: screenshot failed", err));
 });
 
-// Fetches http:// stream files for the TV window (stream-player.js). Chrome
-// won't load plain http into a secure page like the window's, but the service
-// worker isn't a page. Only answers the TV window itself.
+// The pages that play TV: the TV window, and the frame on the felt.
+const PLAYERS = ["stream.html", "table-tv.html"].map((f) => chrome.runtime.getURL(f));
+const fromPlayer = (sender) => PLAYERS.includes(sender.url?.split(/[?#]/)[0]);
+
+// Fetches http:// stream files for the player (stream-player.js). Chrome won't
+// load plain http into a secure page like the player's, but the service worker
+// isn't a page. Only answers the players themselves.
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg?.type !== "stream-fetch") return;
-  if (sender.url?.split(/[?#]/)[0] !== chrome.runtime.getURL("stream.html")) return;
+  if (!fromPlayer(sender)) return;
   if (typeof msg.url !== "string" || !/^http:\/\/\S+$/i.test(msg.url)) return;
   const headers = typeof msg.range === "string" && /^bytes=\d+-\d*$/.test(msg.range) ? { Range: msg.range } : {};
   fetch(msg.url, { credentials: "omit", headers })
@@ -56,7 +60,12 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 
 // The TV window, opened from the TV button on the table (stream.js). Its id is
 // kept in session storage (streamPopout), so the button brings an open one to
-// the front rather than opening another.
+// the front rather than opening another, and the game tabs watch it: while it's
+// open they take TV off the felt, so only one copy plays. Session storage is
+// cleared when Chrome closes, so a window left open then can't keep the felt
+// bare. Content scripts can only read session storage once it's allowed here.
+chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" }).catch(() => {});
+
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type !== "tv-open" || !sender.tab) return;
   (async () => {
@@ -158,9 +167,9 @@ async function checkStreams(list, urls) {
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
   const from = sender.url?.split(/[?#]/)[0];
-  if (msg?.type === "stream-health" && from === chrome.runtime.getURL("stream.html") && typeof msg.url === "string") {
+  if (msg?.type === "stream-health" && fromPlayer(sender) && typeof msg.url === "string") {
     setHealth(msg.url, !!msg.ok);
-  } else if (msg?.type === "stream-check" && from === chrome.runtime.getURL("stream.html") && Array.isArray(msg.urls)) {
+  } else if (msg?.type === "stream-check" && (fromPlayer(sender) || from === chrome.runtime.getURL("popup.html")) && Array.isArray(msg.urls)) {
     const urls = [...new Set(msg.urls.filter((u) => typeof u === "string" && /^https?:\/\/\S+$/i.test(u)))];
     checkStreams(String(msg.list), urls);
   }
